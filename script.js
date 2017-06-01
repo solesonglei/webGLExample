@@ -101,7 +101,8 @@ var main = function(){
 	 ];
 	 
 	 GL.enable(GL.STENCIL_TEST);
-	 //GL.enable(GL.DEPTH_TEST);
+	 GL.enable(GL.DEPTH_TEST);
+	 GL.depthFunc(GL.LEQUAL);
 	 
 	 VERTEX_DATA = GL.createBuffer();
 	 GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX_DATA);
@@ -115,7 +116,7 @@ var main = function(){
 	 var INDEX_DATA_4 = GL.createBuffer();
 	 
 	 var numStencilBits;
-	 var stencilValues = [0x7, 0x2, 0x2, 0xff];
+	 var stencilValues = [0x7, 0x0, 0x2, 0xff];
 	 //stencilValues = [0xff, 0xff, 0xff, 0xff];
 	 GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	 
 	 GL.useProgram(SHADER_PROGRAM);// all of the object in the scene are shared one shader program.
@@ -133,14 +134,14 @@ var main = function(){
 		 GL.drawElements(GL.TRIANGLES, 6,  GL.UNSIGNED_SHORT, 0);	
 		 
 		 // Test 0
-		 GL.stencilFunc(GL.LESS, 0x7, 0x3); //  0x7
+		 GL.stencilFunc(GL.LESS, 0x7, 0x3); //  0x7 (0x7&0x3 < 0x1&0x3 false)(0.5 <= 0.5, true)
 		 GL.stencilOp(GL.REPLACE, GL.DECR, GL.DECR);
 		 GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, INDEX_DATA_0);		 		 
 		 GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices[0]), GL.STATIC_DRAW);
 		 GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_SHORT, 0);
 		 
 		 // Test 1
-		 GL.stencilFunc(GL.GREATER, 0x3, 0x3); //0x3
+		 GL.stencilFunc(GL.GREATER, 0x3, 0x3); //0x0 (0x3&0x3 > 0x1&0x3 true, 0.9 <= 0.5, false)
 		 GL.stencilOp(GL.KEEP, GL.DECR, GL.KEEP);
 		 GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, INDEX_DATA_1);
 		 GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices[1]), GL.STATIC_DRAW);		 
@@ -148,7 +149,7 @@ var main = function(){
 		 
 		 // Test 2
 		 GL.stencilFunc(GL.EQUAL, 0x1, 0x3);
-		 GL.stencilOp(GL.KEEP, GL.INCR, GL.INCR);// 0x4
+		 GL.stencilOp(GL.KEEP, GL.INCR, GL.INCR);// 0x2 (0x1&0x3 == 0x1&0x3 true, 0.5 <= 0.5, true)
 		 GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, INDEX_DATA_2);
 		 GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices[2]), GL.STATIC_DRAW);		 
 		 GL.drawElements(GL.TRIANGLES, 6,  GL.UNSIGNED_SHORT, 0);	
@@ -160,11 +161,12 @@ var main = function(){
 		 GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices[3]), GL.STATIC_DRAW);			 
 		 GL.drawElements(GL.TRIANGLES, 6,  GL.UNSIGNED_SHORT, 0);	 
 		 
-		 numStencilBits = GL.getParameter( GL.STENCIL_BITS);
-		 
-		// console.log(numStencilBits);
+		 numStencilBits = GL.getParameter( GL.STENCIL_BITS);		
 		 
 		 stencilValues[3] = ~(((1 << numStencilBits) - 1) & 0x1) & 0xff;
+		 
+		 console.log( stencilValues[3] );
+		 
 		 GL.stencilMask(0x0);
 		 GL.colorMask(1, 1, 1, 1);
 		 		 		 
