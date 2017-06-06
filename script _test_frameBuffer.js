@@ -84,6 +84,7 @@ var main = function(){
 	
 	var _Pmatrix, _Vmatrix, _Mmatrix, _sampler_tex, _uv_tex, _position_tex, _normal_tex;
 	var _position_quard, _sampler_quard, _uv_quard;
+	var global_teapot;
 	
 	var get_shader = function(source, type, typeString) {
 		var shader = GL.createShader(type);
@@ -145,7 +146,7 @@ var main = function(){
 		//GL.uniform1i(_sampler_quard, 0);
 		return SHADER_PROGRAM; 		
 	}
-			
+				
     // load quard object
 	var VERTEX, FACES, NPOINTS, TEXTURE_COORD, NORMALS;
 	var VERTEX_QUARD, FACES_QUARD;
@@ -162,7 +163,7 @@ var main = function(){
 	
 	FACES_QUARD = GL.createBuffer();
 	GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES_QUARD);
-	GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Float32Array(indices), GL.STATIC_DRAW);	
+	GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), GL.STATIC_DRAW);	
 	GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, null);
 	
 	// load matrix
@@ -178,15 +179,15 @@ var main = function(){
 		image.webglTexture = false;
 		
 		image.onload = function(e){
-			var texture = GL.createTexture();
+			var tex = GL.createTexture();
 			GL.pixelStorei(GL.UNPACK_FLIP_Y_WEBGL, true);
-			GL.bindTexture(GL.TEXTURE_2D, texture);
+			GL.bindTexture(GL.TEXTURE_2D, tex);
 			GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, GL.RGBA, GL.UNSIGNED_BYTE, image);
 			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
 			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.NEAREST_MIPMAP_LINEAR);
 			GL.generateMipmap(GL.TEXTURE_2D);
 			GL.bindTexture(GL.TEXTURE_2D, null);
-			image.webglTexture = texture;			
+			image.webglTexture = tex;			
 		}
 		return image;
 	}
@@ -196,64 +197,73 @@ var main = function(){
 	PHI   = 0;
 	var tex_shader_program   = initial_texture_shader();
 	var quard_shader_program = initial_quard_shader();
-
 	var framebuffer, depthRenderbuffer, texture;
 	var texWidth = CANVAS.width, texHeight = CANVAS.height;
 	var maxRenderbufferSize = GL.getParameter(GL.MAX_RENDERBUFFER_SIZE);
 	
 	var animate = function(){
-		var SHADER_PROGRAM_FRAMEBUFFER, SHADER_PROGRAM_MAIN; 
-		//check for framebuffer complete
+
+		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
+		
 		GL.bindFramebuffer(GL.FRAMEBUFFER, framebuffer);
-		status = GL.checkFramebufferStatus(GL.FRAMEBUFFER);
-		if(status == GL.FRAMEBUFFER_COMPLETE)
-		{
-			// render to texture using FBO
-			GL.enable(GL.DEPTH_TEST);
-			GL.depthFunc(GL.LEQUAL);
-			GL.clearDepth(1.0);
-			//GL.clearColor(0.0f, 0.0f, 0.0f, 1.0f);
-			GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
-			
-			// draw teapot
-			THETA += 0.01;
-			PHI   += 0.01;
-			LIBS.set_I4(MOVEMATRIX);
-			LIBS.rotateY(MOVEMATRIX, THETA);
-			LIBS.rotateX(MOVEMATRIX, PHI);
+		// render to texture using FBO
+		GL.enable(GL.DEPTH_TEST);
+		GL.depthFunc(GL.LEQUAL);
+		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+		
+		// draw teapot
+		THETA += 0.01;
+		PHI   += 0.01;
+		LIBS.set_I4(MOVEMATRIX);
+		LIBS.rotateY(MOVEMATRIX, THETA);
+		LIBS.rotateX(MOVEMATRIX, PHI);
+		GL.useProgram(tex_shader_program);
+		
+		GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
+		GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
+		GL.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIX);
+		GL.uniform1i(_sampler_tex, 0);
 
-			GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);
-			GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);	
-
-			GL.useProgram(tex_shader_program);
-			
-			GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
-			GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
-			GL.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIX);
-			GL.uniform1i(_sampler_tex, 0);
-
-			if (teapot_texture.webglTexture) {	
-				GL.activeTexture(GL.TEXTURE0);	
-				GL.bindTexture(GL.TEXTURE_2D, teapot_texture.webglTexture);
-			}
-			GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES);
-			GL.drawElements(GL.TRIANGLES, NPOINTS, GL.UNSIGNED_INT, 0);	
-			
-			//switch buffer to render main scene
-			GL.useProgram(quard_shader_program);
-			GL.uniform1i(_sampler_quard, 0);
-			GL.bindFramebuffer(GL.FRAMEBUFFER, null);
-				
-			GL.enable(GL.DEPTH_TEST);
-			GL.depthFunc(GL.LEQUAL);
-			GL.clearDepth(1.0);
-			/*GL.clearColor(0.0, 0.0, 0.0, 0.0);*/
-			
-			GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES_QUARD);
-			GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_INT, 0);
+		if (teapot_texture.webglTexture) {	
+			GL.activeTexture(GL.TEXTURE0);	
+			GL.bindTexture(GL.TEXTURE_2D, teapot_texture.webglTexture);
 		}
-			
-		GL.flush();
+		
+		GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX);
+		GL.vertexAttribPointer(_position_tex, 3, GL.FLOAT, false,0,0) ;
+
+		// texture coordinates
+		GL.bindBuffer(GL.ARRAY_BUFFER, TEXTURE_COORD);
+		GL.vertexAttribPointer(_uv_tex, 2, GL.FLOAT, false, 0, 0) ;
+
+		// normals coordinates
+		GL.bindBuffer(GL.ARRAY_BUFFER, NORMALS);
+		GL.vertexAttribPointer(_normal_tex, 3, GL.FLOAT, false, 0, 0) ;
+		
+		//faces 
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES);	
+		NPOINTS = global_teapot.indices.length;	
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES);
+		GL.drawElements(GL.TRIANGLES, NPOINTS, GL.UNSIGNED_INT, 0);	
+		
+		//switch buffer to render main scene
+		GL.bindFramebuffer(GL.FRAMEBUFFER, null);
+		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+		
+		GL.useProgram(quard_shader_program);
+		GL.activeTexture(GL.TEXTURE1);
+		GL.uniform1i(_sampler_quard, 1);
+		GL.bindTexture(GL.TEXTURE_2D, texture);	
+		
+		GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX_QUARD);
+		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(vertices), GL.STATIC_DRAW);
+		GL.vertexAttribPointer(_position_quard, 3, GL.FLOAT, false,5 * 4 ,0) ;	
+		GL.vertexAttribPointer(_uv_quard, 2, GL.FLOAT, false, 5 * 4 ,3 * 4) ;
+		
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES_QUARD);
+		GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_INT, 0);
+		
+		GL.flush();	
 		window.requestAnimationFrame(animate);
 	}
 	
@@ -268,8 +278,8 @@ var main = function(){
 		texture             = GL.createTexture();
 		
 		// bind texture 
-		GL.bindTexture(GL_TEXTURE_2D, texture);
-		GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, texWidth, texHeight, 0, GL.RGBA, GL.UNSIGNED_SHORT_5_6_5, null);
+		GL.bindTexture(GL.TEXTURE_2D, texture);
+		GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGB, texWidth, texHeight, 0, GL.RGB, GL.UNSIGNED_SHORT_5_6_5, null);
 		GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
 		GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
 		GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
@@ -284,11 +294,18 @@ var main = function(){
 		
 		// specify the color and depth attachment
 		GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT0, GL.TEXTURE_2D, texture, 0);
-		GL.framebufferRenderbuffer(GL.FRAMEBUFFER, GL.DEPTH_ATTACHMENT, GL.RENDERBUFFER, depthRenderbuffer);		
+		GL.framebufferRenderbuffer(GL.FRAMEBUFFER, GL.DEPTH_ATTACHMENT, GL.RENDERBUFFER, depthRenderbuffer);
+		status = GL.checkFramebufferStatus(GL.FRAMEBUFFER);
+		if(status != GL.FRAMEBUFFER_COMPLETE){
+			console.log("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+		}
+		
+		GL.bindFramebuffer(GL.FRAMEBUFFER, null);		
 	} 
 	
 	LIBS.get_json("ressources/teapot.json", function(teapot){
 		//vertices
+		global_teapot = teapot;
 		VERTEX = GL.createBuffer ();
 		GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX);
 		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(teapot.vertexPositions), GL.STATIC_DRAW);
@@ -315,7 +332,7 @@ var main = function(){
 		initFramebuffer();
 		animate();
     });
-				
+	
 	//clean
 	GL.deleteRenderbuffer(depthRenderbuffer);
 	GL.deleteFramebuffer(framebuffer);
