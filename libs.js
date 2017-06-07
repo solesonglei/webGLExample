@@ -46,6 +46,12 @@ var LIBS={
       m[12]=0, m[13]=0, m[14]=0, m[15]=1;
   },
 
+  scale:function(m, s){
+	  m[0]  *= s;
+	 m[5]  *= s;
+	 m[10] *= s;
+  },
+  
   rotateX: function(m, angle) {
     var c=Math.cos(angle);
     var s=Math.sin(angle);
