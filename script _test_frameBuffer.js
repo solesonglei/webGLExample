@@ -88,12 +88,13 @@ var main = function(){
 		out vec4 FragColor;                \n\
 		void main(void) {\n\
 		    float time = 5.0; \n\
-			//vec3 color   = vec3(texture2D(sampler, vUV));                   \n\
+			vec3 color   = vec3(texture(sampler, vUV));                   \n\
 			//vec2 res = gl_FragCoord.xy / vec2(uWidth, uHeight);             \n\
 			FragColor = texture( sampler, vUV + 0.005*vec2( sin(time+1024.0*vUV.x),cos(time+768.0*vUV.y)) ) ;   \n\
-			//gl_FragColor = vec4(color, 1.0);        \n\
+			FragColor = vec4(color, 1.0);        \n\
 			//gl_FragColor = vec4(color.x, color.x, color.x, 1.0);        \n\
 		}";
+	
 	
 	var blurShader =   "#version 300 es   \n\
 						precision mediump float; \n\
@@ -133,7 +134,7 @@ var main = function(){
 						precision mediump float; \n\
 						in vec2 vUV; \n\
 						uniform sampler2D sampler; \n\
-						const float offset = 1.0 / 300.0; \n\
+						const float offset = 10.0 / 300.0; \n\
 						out vec4 FragColor;\n\
 						void main(void) \n\
 						{                                                                        \n\
@@ -163,14 +164,14 @@ var main = function(){
 							FragColor = vec4(col, 1.0);                                          \n\
 						}";
 	
-	var guassBlur = "#version 300 es                                                                                        \n\
+	var shader_guassBlur = "#version 300 es                                                                                        \n\
 					precision mediump float;                                                                                \n\
 					out vec4 FragColor;                                                                                     \n\
 																															\n\
 					in vec2 vUV;                                                                                      		\n\
 					uniform sampler2D sampler;                                                                                \n\
 																															\n\
-					bool horizontal = false;                                                                                 \n\
+					uniform bool horizontal;                                                                                 \n\
 					float weight[] = float[] (0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);                          \n\
 																															\n\
 					void main()                                                                                             \n\
@@ -197,20 +198,47 @@ var main = function(){
 						FragColor = vec4(result, 1.0);                                                                      \n\
 					}                                                                                                      "
 	
-	shader_fragment_source_quard = blurShader;
+	var shader_combine = "#version 300 es                                                \n\
+						   precision mediump float;                                      \n\
+																						 \n\
+						   out vec4 FragColor;                                           \n\
+						   in vec2 vUV;                                                  \n\
+						   															     \n\
+						   uniform sampler2D scene;                                      \n\
+						   uniform sampler2D bloomBlur;                                  \n\
+						   float exposure = 1.0;                                       \n\
+						   															     \n\
+						   void main()                                                   \n\
+						   {                                                             \n\
+								const float gamma = 2.2;                                 \n\
+								vec3 hdrColor = texture(scene, vUV).rgb;           	     \n\
+								vec3 bloomColor = texture(bloomBlur, vUV).rgb;           \n\
+								hdrColor += bloomColor; // additive blending             \n\
+								// tone mapping                                          \n\
+								vec3 result = vec3(1.0) - exp(-hdrColor * exposure);     \n\
+								// also gamma correct while we're at it                  \n\
+								result = pow(result, vec3(1.0 / gamma));                 \n\
+								FragColor = vec4(result, 1.0);                           \n\
+						   } "
+		
+	//shader_fragment_source_quard = blurShader;
 	//shader_fragment_source_quard = kernelEffect;
-	shader_fragment_source_quard = guassBlur;
+	//shader_fragment_source_quard = guassBlur;
 	
 	var _Pmatrix, _Vmatrix, _Mmatrix, _sampler_tex, _uv_tex, _position_tex, _normal_tex;
-	var _position_quard, _sampler_quard, _uv_quard, _uwidth, _uheight, _time;
+	var _position_quard, _sampler_quard, _uv_quard, _uwidth, _uheight, _horizontal;
+	var _image, _scene, _bloomBlur, _uv_blur, _uv_combine;
 	var global_teapot;
 
 	var PROJMATRIX, MOVEMATRIX, VIEWMATRIX;			
 	var teapot_texture;
 	var tex_shader_program , quard_shader_program;
+	var bloom_shader_blur, bloom_shader_combine;
 	var framebuffer, depthRenderbuffer, texture;
 	var depthTexture;
 	var texWidth , texHeight;
+	var pingpongFBO, pingpongTexture;
+	var bloomFBO, bloomInitTex;
 
 	var VERTEX, FACES, NPOINTS, TEXTURE_COORD, NORMALS;
 	var VERTEX_QUARD, FACES_QUARD;
@@ -273,11 +301,9 @@ var main = function(){
 		GL.enableVertexAttribArray(_position_tex);
 		GL.enableVertexAttribArray(_normal_tex);
 		
-		//GL.useProgram(SHADER_PROGRAM);
-		//GL.uniform1i(_sampler_tex, 0);
 		return SHADER_PROGRAM; 
 	}
-	
+		
 	function initial_quard_shader(){
 		var shader_vertex	=	get_shader(shader_vertex_source_quard, GL.VERTEX_SHADER, "VERTEX");
 		var shader_fragment	=	get_shader(shader_fragment_source_quard, GL.FRAGMENT_SHADER, "FRAGMENT");
@@ -302,13 +328,58 @@ var main = function(){
 		//GL.uniform1i(_sampler_quard, 0);
 		return SHADER_PROGRAM; 		
 	}
-						
+
+	function initial_bloom_blur_shader(){
+		var shader_vertex	=	get_shader(shader_vertex_source_quard, GL.VERTEX_SHADER, "VERTEX");
+		//var shader_fragment	=	get_shader(shader_guassBlur, GL.FRAGMENT_SHADER, "FRAGMENT");
+		var shader_fragment	=	get_shader(blurShader, GL.FRAGMENT_SHADER, "FRAGMENT");
+	
+		var SHADER_PROGRAM = GL.createProgram();
+		GL.attachShader(SHADER_PROGRAM, shader_vertex);
+		GL.attachShader(SHADER_PROGRAM, shader_fragment);
+	
+		GL.linkProgram(SHADER_PROGRAM);
+	
+		//_horizontal  = GL.getUniformLocation(SHADER_PROGRAM, "horizontal");		
+		_uv_blur 	 = GL.getAttribLocation(SHADER_PROGRAM,  "uv");
+		_image       = GL.getUniformLocation(SHADER_PROGRAM, "sampler");
+	
+		GL.enableVertexAttribArray(_uv_blur);
+		
+		return SHADER_PROGRAM; 		
+	}
+	
+	function initial_bloom_combine_shader(){
+		var shader_vertex	=	get_shader(shader_vertex_source_quard, GL.VERTEX_SHADER, "VERTEX");
+		var shader_fragment	=	get_shader(shader_combine, GL.FRAGMENT_SHADER, "FRAGMENT");
+	
+		var SHADER_PROGRAM = GL.createProgram();
+		GL.attachShader(SHADER_PROGRAM, shader_vertex);
+		GL.attachShader(SHADER_PROGRAM, shader_fragment);
+	
+		GL.linkProgram(SHADER_PROGRAM);
+	
+		_horizontal  = GL.getUniformLocation(SHADER_PROGRAM, "horizontal");
+		_scene       = GL.getUniformLocation(SHADER_PROGRAM, "scene");
+		_bloomBlur   = GL.getUniformLocation(SHADER_PROGRAM, "bloomBlur");
+		
+		_uv_combine  = GL.getAttribLocation(SHADER_PROGRAM,  "uv");
+	
+		GL.enableVertexAttribArray(_uv_combine);
+		
+		return SHADER_PROGRAM; 		
+	}
+	
 	var initDrawParameter = function(){
 		THETA = 0;
 		PHI   = 0;
 		teapot_texture = get_texture("ressources/teapot_texture.png");
 		tex_shader_program   = initial_texture_shader();
 		quard_shader_program = initial_quard_shader();
+		bloom_shader_blur    = initial_bloom_blur_shader();
+		bloom_shader_combine = initial_bloom_combine_shader();
+		
+		//bloom_
 		texWidth = CANVAS.width;
 		texHeight = CANVAS.height;
 		
@@ -379,16 +450,162 @@ var main = function(){
 		GL.bindFramebuffer(GL.FRAMEBUFFER, null);		
 	} 
 	
+	var initBloomFBO = function(){
+			bloomFBO 			= GL.createFramebuffer();
+			bloomInitTex   		= GL.createTexture();
+			depthRenderbuffer   = GL.createRenderbuffer();
+			
+			GL.bindFramebuffer(GL.FRAMEBUFFER, bloomFBO);
+			GL.bindTexture(GL.TEXTURE_2D, bloomInitTex);
+			
+			GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGB, texWidth, texHeight, 0, GL.RGB, GL.UNSIGNED_SHORT_5_6_5, null);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+			
+			// bind renderbuffer
+			GL.bindRenderbuffer(GL.RENDERBUFFER, depthRenderbuffer);
+			GL.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, texWidth, texHeight);
+			
+			GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT0, GL.TEXTURE_2D, bloomInitTex, 0);
+			GL.framebufferRenderbuffer(GL.FRAMEBUFFER, GL.DEPTH_ATTACHMENT, GL.RENDERBUFFER, depthRenderbuffer);			
+	}
+	
+	var initPingpongFBO = function(){
+		pingpongFBO     = new Array(2);
+		pingpongTexture = new Array(2);
+		for(let i = 0 ; i < 2; ++i){
+			pingpongFBO[i] 			= GL.createFramebuffer();
+			pingpongTexture[i]   	= GL.createTexture();
+			
+			GL.bindFramebuffer(GL.FRAMEBUFFER, pingpongFBO[i]);
+			GL.bindTexture(GL.TEXTURE_2D, pingpongTexture[i]);
+			
+			GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGB, texWidth, texHeight, 0, GL.RGB, GL.UNSIGNED_SHORT_5_6_5, null);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+			
+			GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT0, GL.TEXTURE_2D, pingpongTexture[i], 0);			
+		}
+	}
+	
+	var animateForBloom = function(){
+		GL.bindFramebuffer(GL.FRAMEBUFFER, bloomFBO);
+		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
+		var intHorizaontal = 0, horizontal = false, firstIteration = true;
+		var iterCount = 1;	
+		
+		// render Teapot
+		GL.enable(GL.DEPTH_TEST);
+		GL.depthFunc(GL.LEQUAL);
+		GL.clearColor(1.0, 0.0, 1.0, 1.0);
+		GL.clearDepth(1.0);
+		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+		
+		THETA += 0.01;
+		//PHI   += 0.01;
+		LIBS.set_I4(MOVEMATRIX);
+		//LIBS.scale(MOVEMATRIX, 1.2);
+		LIBS.rotateY(MOVEMATRIX, THETA);
+		LIBS.rotateX(MOVEMATRIX, PHI);
+		GL.useProgram(tex_shader_program);
+		
+		GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
+		GL.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
+		GL.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIX);
+		GL.uniform1i(_sampler_tex, 0);
+	
+		if (teapot_texture.webglTexture) {	
+			GL.activeTexture(GL.TEXTURE0);	
+			GL.bindTexture(GL.TEXTURE_2D, teapot_texture.webglTexture);
+		}
+		
+		GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX);
+		GL.vertexAttribPointer(_position_tex, 3, GL.FLOAT, false,0,0) ;
+	
+		// texture coordinates
+		GL.bindBuffer(GL.ARRAY_BUFFER, TEXTURE_COORD);
+		GL.vertexAttribPointer(_uv_tex, 2, GL.FLOAT, false, 0, 0) ;
+	
+		// normals coordinates
+		GL.bindBuffer(GL.ARRAY_BUFFER, NORMALS);
+		GL.vertexAttribPointer(_normal_tex, 3, GL.FLOAT, false, 0, 0) ;
+		
+		//faces 
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES);	
+		NPOINTS = global_teapot.indices.length;	
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES);
+		GL.drawElements(GL.TRIANGLES, NPOINTS, GL.UNSIGNED_INT, 0);	
+				
+		GL.useProgram(bloom_shader_blur);
+		GL.activeTexture(GL.TEXTURE1);
+		for(let i = 0; i < iterCount; ++i){
+			GL.bindFramebuffer(GL.FRAMEBUFFER, pingpongFBO[intHorizaontal]);
+			
+			//GL.uniform1i(_horizontal, intHorizaontal);
+			GL.uniform1i(_image, 1);
+			intHorizaontal = (intHorizaontal + 1) % 2;			
+			GL.bindTexture(GL.TEXTURE_2D, firstIteration ? bloomInitTex : pingpongTexture[intHorizaontal]);
+			
+			// render quard
+			GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX_QUARD);
+			GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(vertices), GL.STATIC_DRAW);
+			GL.vertexAttribPointer(_position_quard, 3, GL.FLOAT, false,5 * 4 ,0) ;	
+			GL.vertexAttribPointer(_uv_quard, 2, GL.FLOAT, false, 5 * 4 ,3 * 4) ;
+			
+			GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES_QUARD);
+			GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_INT, 0);
+			
+			if(firstIteration){
+				firstIteration = false;
+			}			
+		}
+				
+		// render quard
+		GL.bindFramebuffer(GL.FRAMEBUFFER, null);
+		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+		
+		GL.useProgram(bloom_shader_combine);	
+		GL.uniform1i(_scene, 0);
+		GL.uniform1i(_bloomBlur, 1);
+				
+		//GL.useProgram(quard_shader_program);	
+		//GL.uniform1i(_sampler_quard, 1);
+		
+		GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX_QUARD);
+		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(vertices), GL.STATIC_DRAW);
+		GL.vertexAttribPointer(_position_quard, 3, GL.FLOAT, false,5 * 4 ,0) ;	
+		GL.vertexAttribPointer(_uv_combine, 2, GL.FLOAT, false, 5 * 4 ,3 * 4) ;
+		//GL.vertexAttribPointer(_uv_quard, 2, GL.FLOAT, false, 5 * 4 ,3 * 4) ;
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES_QUARD);
+
+		//GL.activeTexture(GL.TEXTURE1);
+		//GL.bindTexture(GL.TEXTURE_2D,  pingpongTexture[0]);
+		
+		GL.activeTexture(GL.TEXTURE0);
+		GL.bindTexture(GL.TEXTURE_2D, bloomInitTex);
+		GL.activeTexture(GL.TEXTURE1);
+		GL.bindTexture(GL.TEXTURE_2D,  pingpongTexture[1]);
+		
+		GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_INT, 0);
+	
+		GL.flush();	
+		window.requestAnimationFrame(animateForBloom);		
+	}
+	
 	var animate = function(){
 
 		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
+		GL.clearColor(1.0, 1.0, 1.0, 1.0);
+		GL.clearDepth(1.0);
 		
 		GL.bindFramebuffer(GL.FRAMEBUFFER, framebuffer);
 		// render to texture using FBO
 		GL.enable(GL.DEPTH_TEST);
 		GL.depthFunc(GL.LEQUAL);
-		GL.clearColor(1.0, 1.0, 1.0, 1.0);
-		GL.clearDepth(1.0);
 		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 		
 		////////////// draw teapot as texture attach to quard in main scene /////////////////
@@ -477,9 +694,14 @@ var main = function(){
 		GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint32Array(teapot.indices), GL.STATIC_DRAW);	
 		NPOINTS = teapot.indices.length;
 	
+		//initDrawParameter();
+		//initFramebuffer();
+		//animate();
+		
 		initDrawParameter();
-		initFramebuffer();
-		animate();
+		initBloomFBO();
+		initPingpongFBO();
+		animateForBloom();
     });
 	
 	//clean
