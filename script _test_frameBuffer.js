@@ -16,93 +16,92 @@ var main = function(){
 	
 	var ext = GL.getExtension('WEBGL_depth_texture');
 	
-	var shader_vertex_source_tex = "\n\
-		attribute vec3 position;\n\
-		attribute vec2 uv;\n\
-		attribute vec3 normal;\n\
-		uniform mat4 Pmatrix;\n\
-		uniform mat4 Vmatrix;\n\
-		uniform mat4 Mmatrix;\n\
-		varying vec2 vUV;\n\
-		varying vec3 vNormal;\n\
-		varying vec3 vView;\n\
-		mat4 scaleMatrix = mat4(.2,0,0,0,   \n\
-		                    0,.2,0,0,    \n\
-							0,0,.2,0,    \n\
-							0,0,0,1 );   \n\
-		\n\
-		void main(void) {\n\
-		gl_Position = Pmatrix * Vmatrix * Mmatrix * scaleMatrix * vec4(position, 1.);\n\
-		vNormal=vec3(Mmatrix*vec4(normal, 0.));\n\
-		vView=vec3(Vmatrix*Mmatrix*vec4(position, 1.));\n\
-		vUV = uv;\n\
+	var shader_vertex_source_tex = "#version 300 es \n\
+		in vec3 position;							\n\
+		in vec2 uv;									\n\
+		in vec3 normal;								\n\
+		uniform mat4 Pmatrix;						\n\
+		uniform mat4 Vmatrix;						\n\
+		uniform mat4 Mmatrix;						\n\
+		out vec2 vUV;								\n\
+		out vec3 vNormal;							\n\
+		out vec3 vView;								\n\
+		mat4 scaleMatrix = mat4(.2,0,0,0,   		\n\
+		                    0,.2,0,0,    			\n\
+							0,0,.2,0,    			\n\
+							0,0,0,1 );   			\n\
+													\n\
+		void main(void) {							\n\
+			gl_Position = Pmatrix * Vmatrix * Mmatrix * scaleMatrix * vec4(position, 1.);	\n\
+			vNormal=vec3(Mmatrix*vec4(normal, 0.));											\n\
+			vView=vec3(Vmatrix*Mmatrix*vec4(position, 1.));									\n\
+			vUV = uv;																		\n\
+		}";
+		
+	 var shader_fragment_source_tex = "#version 300 es		\n\
+		precision mediump float;							\n\
+		uniform sampler2D sampler;							\n\
+		in vec2 vUV;										\n\
+		in vec3 vNormal;									\n\
+		in vec3 vView;										\n\
+		layout(location = 0) out vec4 FlagColor1;           \n\
+		layout(location = 1) out vec4 FlagColor2;           \n\
+															\n\
+		const vec3 source_ambient_color=vec3(1.,1.,1.);		\n\
+		const vec3 source_diffuse_color=vec3(1.,1.,1.);		\n\
+		const vec3 source_specular_color=vec3(1.,1.,1.);	\n\
+		const vec3 source_direction=vec3(0.,0.,1.);			\n\
+															\n\
+		const vec3 mat_ambient_color=vec3(0.3,0.3,0.3);		\n\
+		const vec3 mat_diffuse_color=vec3(1.,1.,1.);		\n\
+		const vec3 mat_specular_color=vec3(1.,1.,1.);		\n\
+		const float mat_shininess=10.;						\n\
+															\n\
+		void main(void) {									\n\
+			vec3 color = vec3(texture(sampler, vUV));															\n\
+			vec3 I_ambient = source_ambient_color*mat_ambient_color;											\n\
+			vec3 I_diffuse = source_diffuse_color*mat_diffuse_color*max(0., dot(vNormal, source_direction));	\n\
+			vec3 V = normalize(vView);																			\n\
+			vec3 R = reflect(source_direction, vNormal);														\n\
+			vec3 I_specular=source_specular_color*mat_specular_color*pow(max(dot(R,V),0.), mat_shininess);		\n\
+			vec3 I=I_ambient+I_diffuse+I_specular;																\n\
+			FlagColor1 = vec4(I*color, 1.);																	    \n\
+			FlagColor2 = vec4(0.0, 0.0, 0.0, 1.);																	    \n\
 		}";
 
-	 var shader_fragment_source_tex = "\n\
-		precision mediump float;\n\
-		uniform sampler2D sampler;\n\
-		varying vec2 vUV;\n\
-		varying vec3 vNormal;\n\
-		varying vec3 vView;\n\
-		const vec3 source_ambient_color=vec3(1.,1.,1.);\n\
-		const vec3 source_diffuse_color=vec3(1.,1.,1.);\n\
-		const vec3 source_specular_color=vec3(1.,1.,1.);\n\
-		const vec3 source_direction=vec3(0.,0.,1.);\n\
-		\n\
-		const vec3 mat_ambient_color=vec3(0.3,0.3,0.3);\n\
-		const vec3 mat_diffuse_color=vec3(1.,1.,1.);\n\
-		const vec3 mat_specular_color=vec3(1.,1.,1.);\n\
-		const float mat_shininess=10.;\n\
-		\n\
-		\n\
-		\n\
-		void main(void) {\n\
-		vec3 color = vec3(texture2D(sampler, vUV));\n\
-		vec3 I_ambient = source_ambient_color*mat_ambient_color;\n\
-		vec3 I_diffuse = source_diffuse_color*mat_diffuse_color*max(0., dot(vNormal, source_direction));\n\
-		vec3 V = normalize(vView);\n\
-		vec3 R = reflect(source_direction, vNormal);\n\
-		\n\
-		\n\
-		vec3 I_specular=source_specular_color*mat_specular_color*pow(max(dot(R,V),0.), mat_shininess);\n\
-		vec3 I=I_ambient+I_diffuse+I_specular;\n\
-		gl_FragColor = vec4(I*color, 1.);\n\
-		}";
-
-	var shader_vertex_source_quard = "#version 300 es \n\
-		in vec4 vPosition; \n\
-		in vec2 uv; \n\
-		out vec2 vUV;  \n\
-						   \n\
-		void main(void) {  \n\
-			gl_Position = vPosition; \n\
-			vUV = uv; \n\
+	var shader_vertex_source_quard = "#version 300 es 	\n\
+		in vec4 vPosition; 								\n\
+		in vec2 uv; 									\n\
+		out vec2 vUV;  									\n\
+														\n\
+		void main(void) {   							\n\
+			gl_Position = vPosition; 					\n\
+			vUV = uv; 									\n\
 		}";
 		
 	var shader_fragment_source_quard = "#version 300 es \n\
-		precision mediump float;          \n\
-		in vec2 vUV;                 \n\
-		uniform sampler2D sampler;        \n\
-		uniform float uWidth;             \n\
-		uniform float uHeight;            \n\
-		out vec4 FragColor;                \n\
-		void main(void) {\n\
-		    float time = 5.0; \n\
-			vec3 color   = vec3(texture(sampler, vUV));                   \n\
-			//vec2 res = gl_FragCoord.xy / vec2(uWidth, uHeight);             \n\
+		precision mediump float;         				\n\
+		in vec2 vUV;                	 				\n\
+		uniform sampler2D sampler;       				\n\
+		uniform float uWidth;            				\n\
+		uniform float uHeight;           				\n\
+		out vec4 FragColor;              				\n\
+		void main(void) {								\n\
+		    float time = 5.0; 							\n\
+			vec3 color   = vec3(texture(sampler, vUV));                   										\n\
+			//vec2 res = gl_FragCoord.xy / vec2(uWidth, uHeight);             									\n\
 			FragColor = texture( sampler, vUV + 0.005*vec2( sin(time+1024.0*vUV.x),cos(time+768.0*vUV.y)) ) ;   \n\
-			FragColor = vec4(color, 1.0);        \n\
-			//gl_FragColor = vec4(color.x, color.x, color.x, 1.0);        \n\
+			FragColor = vec4(color, 1.0);        																\n\
+			//gl_FragColor = vec4(color.x, color.x, color.x, 1.0);       										 \n\
 		}";
 	
-	
-	var blurShader =   "#version 300 es   \n\
-						precision mediump float; \n\
-						in vec2 vUV; \n\
-						uniform sampler2D sampler; \n\
-						const float offset = 1.0 / 300.0; \n\
-						out vec4 FragColor;\n\
-						void main(void) \n\
+	var blurShader =   "#version 300 es   					\n\
+						precision mediump float; 			\n\
+						in vec2 vUV; 						\n\
+						uniform sampler2D sampler; 			\n\
+						const float offset = 1.0 / 600.0; 	\n\
+						out vec4 FragColor;					\n\
+						void main(void) 					\n\
 						{                                                                        \n\
 							vec2 offsets[9] = vec2[9]( 	vec2(-offset, offset), // top-left       \n\
 													vec2( 0.0f, offset), // top-center           \n\
@@ -116,9 +115,9 @@ var main = function(){
 												);	                                             \n\
 																								 \n\
 							float kernel[9] = float[9]( 			                             \n\
-												1.0, 1.0,  1.0,		                                 \n\
-												1.0, 8.0 , 1.0,		                                 \n\
-												1.0, 1.0, 1.0);	                                     \n\
+												1.0, 2.0,  1.0,		                             \n\
+												2.0, 4.0 , 2.0,		                             \n\
+												1.0, 2.0, 1.0);	                                 \n\
 							vec3 sampleTex[9];                                                   \n\
 							for(int i = 0; i < 9; ++i){                                          \n\
 								sampleTex[i] = vec3(texture(sampler, vUV.st + offsets[i]));      \n\
@@ -130,13 +129,67 @@ var main = function(){
 							FragColor = vec4(col, 1.0);                                          \n\
 						}";
 
-	var kernelEffect =   "#version 300 es   \n\
-						precision mediump float; \n\
-						in vec2 vUV; \n\
-						uniform sampler2D sampler; \n\
-						const float offset = 10.0 / 300.0; \n\
-						out vec4 FragColor;\n\
-						void main(void) \n\
+		blurShader1 = "#version 300 es   					                                            \n\
+				precision mediump float; 			                                            \n\
+				in vec2 vUV; 						                                            \n\
+				uniform sampler2D sampler; 			                                            \n\
+				const float offset = 1.0 / 300.0; 	                                            \n\
+				out vec4 FragColor;					                                            \n\
+				void main(void) 					                                            \n\
+				{                                                                               \n\
+					vec2 offsets[25] = vec2[25]( 	vec2(-2.0f * offset, 2.0f * offset),        \n\
+													vec2(       -offset, 2.0f * offset),        \n\
+													vec2(          0.0f, 2.0f * offset),        \n\
+													vec2(        offset, 2.0f * offset),        \n\
+													vec2( 2.0f * offset, 2.0f * offset),        \n\
+													vec2(-2.0f * offset,     offset),           \n\
+													vec2(-1.0f * offset,     offset),           \n\
+													vec2( 		   0.0f, 	 offset),           \n\
+													vec2(        offset,     offset),           \n\
+													vec2( 2.0f * offset,     offset),           \n\
+													vec2(-2.0f * offset,     0.0f),             \n\
+													vec2(       -offset,     0.0f),             \n\
+													vec2(          0.0f,     0.0f),             \n\
+													vec2(        offset,     0.0f),             \n\
+													vec2( 2.0f * offset,     0.0f),             \n\
+													vec2(-2.0f * offset,    -offset),           \n\
+													vec2(-1.0f * offset,    -offset),           \n\
+													vec2( 		   0.0f, 	-offset),           \n\
+													vec2(        offset,    -offset),           \n\
+													vec2( 2.0f * offset,    -offset),           \n\
+													vec2(-2.0f * offset, -2.0f * offset),       \n\
+													vec2(       -offset, -2.0f * offset),       \n\
+													vec2(          0.0f, -2.0f * offset),       \n\
+													vec2(        offset, -2.0f * offset),       \n\
+													vec2( 2.0f * offset, -2.0f * offset) );	    \n\
+																								\n\
+																								\n\
+					float kernel[25] = float[25](1.0,  4.0,  7.0,  4.0, 1.0,                                     \n\
+											4.0, 16.0, 26.0, 16.0, 4.0,                                   \n\
+											7.0, 26.0, 41.0, 26.0, 7.0,                                   \n\
+											4.0, 16.0, 26.0, 16.0, 4.0,                                  \n\
+											1.0,  4.0,  7.0,  4.0, 1.0);		                                \n\
+																								\n\
+					vec3 sampleTex[25];                                                         \n\
+					for(int i = 0; i < 25; ++i){                                                \n\
+						sampleTex[i] = vec3(texture(sampler, vUV.st + offsets[i]));             \n\
+					}  	                                                                        \n\
+																								\n\
+					vec3 col = vec3(0.0);                                                       \n\
+					for(int i = 0; i < 25; ++i) {                                               \n\
+						col += sampleTex[i] * (kernel[i] / 273.0);                              \n\
+						FragColor = vec4(col, 1.0);                                             \n\
+					}                                                                           \n\
+				} "	;
+						
+						
+	var kernelEffect =   "#version 300 es  					 									\n\
+						precision mediump float; 			 									\n\
+						in vec2 vUV;                         									\n\
+						uniform sampler2D sampler;           									\n\
+						const float offset = 10.0 / 300.0;   									\n\
+						out vec4 FragColor;														\n\
+						void main(void) 														\n\
 						{                                                                        \n\
 							vec2 offsets[9] = vec2[9]( 	vec2(-offset, offset), // top-left       \n\
 													vec2( 0.0f, offset), // top-center           \n\
@@ -164,7 +217,7 @@ var main = function(){
 							FragColor = vec4(col, 1.0);                                          \n\
 						}";
 	
-	var shader_guassBlur = "#version 300 es                                                                                        \n\
+	var shader_guassBlur = "#version 300 es                                                                                 \n\
 					precision mediump float;                                                                                \n\
 					out vec4 FragColor;                                                                                     \n\
 																															\n\
@@ -177,7 +230,7 @@ var main = function(){
 					void main()                                                                                             \n\
 					{                                                                                                       \n\
 						vec2 tex_size = vec2( textureSize(sampler, 0));                                                       \n\
-						vec2 tex_offset = 1.0 / tex_size; // gets size of single texel                                      \n\
+						vec2 tex_offset = 1.90 / tex_size; // gets size of single texel                                      \n\
 						vec3 result = texture(sampler, vUV).rgb * weight[0]; // current fragment's contribution         		\n\
 						if(horizontal)                                                                                      \n\
 						{                                                                                                   \n\
@@ -198,7 +251,7 @@ var main = function(){
 						FragColor = vec4(result, 1.0);                                                                      \n\
 					}                                                                                                      "
 	
-	var shader_combine = "#version 300 es                                                \n\
+	/*var shader_combine = "#version 300 es                                                \n\
 						   precision mediump float;                                      \n\
 																						 \n\
 						   out vec4 FragColor;                                           \n\
@@ -219,8 +272,29 @@ var main = function(){
 								// also gamma correct while we're at it                  \n\
 								result = pow(result, vec3(1.0 / gamma));                 \n\
 								FragColor = vec4(result, 1.0);                           \n\
+						   } " */
+	
+	shader_combine = "#version 300 es                                                \n\
+						   precision mediump float;                                      \n\
+																						 \n\
+						   out vec4 FragColor;                                           \n\
+						   in vec2 vUV;                                                  \n\
+						   															     \n\
+						   uniform sampler2D scene;                                      \n\
+						   uniform sampler2D bloomBlur;                                  \n\
+						   float exposure = 1.0;                                       \n\
+						   															     \n\
+						   void main()                                                   \n\
+						   {                                                             \n\
+								const float gamma = 2.2;                                 \n\
+								vec3 hdrColor 	= texture(scene, vUV).rgb;           	     \n\
+								vec3 bloomColor = texture(bloomBlur, vUV).rgb;           \n\
+								// tone mapping                                          \n\
+								vec3 result = (bloomColor * 0.5 + hdrColor * 0.5);               \n\
+								FragColor = vec4(bloomColor, 1.0);                             \n\
+								FragColor = vec4(result, 1.0);                           \n\
 						   } "
-		
+	
 	//shader_fragment_source_quard = blurShader;
 	//shader_fragment_source_quard = kernelEffect;
 	//shader_fragment_source_quard = guassBlur;
@@ -234,8 +308,7 @@ var main = function(){
 	var teapot_texture;
 	var tex_shader_program , quard_shader_program;
 	var bloom_shader_blur, bloom_shader_combine;
-	var framebuffer, depthRenderbuffer, texture;
-	var depthTexture;
+	var framebuffer, depthRenderbuffer, texture, blackTexture, depthTexture;
 	var texWidth , texHeight;
 	var pingpongFBO, pingpongTexture;
 	var bloomFBO, bloomInitTex;
@@ -339,10 +412,10 @@ var main = function(){
 		GL.attachShader(SHADER_PROGRAM, shader_fragment);
 	
 		GL.linkProgram(SHADER_PROGRAM);
-	
-		//_horizontal  = GL.getUniformLocation(SHADER_PROGRAM, "horizontal");		
+			
 		_uv_blur 	 = GL.getAttribLocation(SHADER_PROGRAM,  "uv");
 		_image       = GL.getUniformLocation(SHADER_PROGRAM, "sampler");
+		_horizontal  = GL.getUniformLocation(SHADER_PROGRAM, "horizontal");
 	
 		GL.enableVertexAttribArray(_uv_blur);
 		
@@ -359,7 +432,6 @@ var main = function(){
 	
 		GL.linkProgram(SHADER_PROGRAM);
 	
-		_horizontal  = GL.getUniformLocation(SHADER_PROGRAM, "horizontal");
 		_scene       = GL.getUniformLocation(SHADER_PROGRAM, "scene");
 		_bloomBlur   = GL.getUniformLocation(SHADER_PROGRAM, "bloomBlur");
 		
@@ -420,7 +492,7 @@ var main = function(){
 		GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
 		GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
 		GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
-
+		
 		// bind depth texture 
 	/*	GL.bindTexture(GL.TEXTURE_2D, depthTexture);
 		GL.texImage2D(GL.TEXTURE_2D, 0, GL.DEPTH_COMPONENT, texWidth , texHeight, 0, GL.DEPTH_COMPONENT, GL.UNSIGNED_SHORT, null);
@@ -454,10 +526,19 @@ var main = function(){
 			bloomFBO 			= GL.createFramebuffer();
 			bloomInitTex   		= GL.createTexture();
 			depthRenderbuffer   = GL.createRenderbuffer();
+			blackTexture        = GL.createTexture();
 			
 			GL.bindFramebuffer(GL.FRAMEBUFFER, bloomFBO);
-			GL.bindTexture(GL.TEXTURE_2D, bloomInitTex);
 			
+			GL.bindTexture(GL.TEXTURE_2D, bloomInitTex);			
+			GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGB, texWidth, texHeight, 0, GL.RGB, GL.UNSIGNED_SHORT_5_6_5, null);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
+			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+
+			// bind texture where all of scene object are drawn in black.
+			GL.bindTexture(GL.TEXTURE_2D, blackTexture);
 			GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGB, texWidth, texHeight, 0, GL.RGB, GL.UNSIGNED_SHORT_5_6_5, null);
 			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
 			GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
@@ -469,6 +550,7 @@ var main = function(){
 			GL.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, texWidth, texHeight);
 			
 			GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT0, GL.TEXTURE_2D, bloomInitTex, 0);
+			GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT1, GL.TEXTURE_2D, blackTexture, 0);			
 			GL.framebufferRenderbuffer(GL.FRAMEBUFFER, GL.DEPTH_ATTACHMENT, GL.RENDERBUFFER, depthRenderbuffer);			
 	}
 	
@@ -494,21 +576,22 @@ var main = function(){
 	
 	var animateForBloom = function(){
 		GL.bindFramebuffer(GL.FRAMEBUFFER, bloomFBO);
+		GL.drawBuffers([GL.COLOR_ATTACHMENT0, GL.COLOR_ATTACHMENT1]);
 		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
 		var intHorizaontal = 0, horizontal = false, firstIteration = true;
-		var iterCount = 1;	
+		var iterCount = 10;	
 		
 		// render Teapot
 		GL.enable(GL.DEPTH_TEST);
 		GL.depthFunc(GL.LEQUAL);
-		GL.clearColor(1.0, 0.0, 1.0, 1.0);
+		GL.clearColor(1.0, 1.0, 1.0, 1.0);
 		GL.clearDepth(1.0);
 		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 		
-		THETA += 0.01;
+		//THETA += 0.01;
 		//PHI   += 0.01;
 		LIBS.set_I4(MOVEMATRIX);
-		//LIBS.scale(MOVEMATRIX, 1.2);
+		//LIBS.scale(MOVEMATRIX, 1.5);
 		LIBS.rotateY(MOVEMATRIX, THETA);
 		LIBS.rotateX(MOVEMATRIX, PHI);
 		GL.useProgram(tex_shader_program);
@@ -544,11 +627,10 @@ var main = function(){
 		GL.activeTexture(GL.TEXTURE1);
 		for(let i = 0; i < iterCount; ++i){
 			GL.bindFramebuffer(GL.FRAMEBUFFER, pingpongFBO[intHorizaontal]);
-			
-			//GL.uniform1i(_horizontal, intHorizaontal);
+			GL.uniform1i(_horizontal, intHorizaontal);
 			GL.uniform1i(_image, 1);
 			intHorizaontal = (intHorizaontal + 1) % 2;			
-			GL.bindTexture(GL.TEXTURE_2D, firstIteration ? bloomInitTex : pingpongTexture[intHorizaontal]);
+			GL.bindTexture(GL.TEXTURE_2D, firstIteration ?  blackTexture : pingpongTexture[intHorizaontal]);
 			
 			// render quard
 			GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX_QUARD);
