@@ -99,7 +99,8 @@ var main = function(){
 						precision mediump float; 			\n\
 						in vec2 vUV; 						\n\
 						uniform sampler2D sampler; 			\n\
-						const float offset = 1.0 / 600.0; 	\n\
+						uniform float offset;\n\
+						//const float offset = 1.0 / 600.0; 	\n\
 						out vec4 FragColor;					\n\
 						void main(void) 					\n\
 						{                                                                        \n\
@@ -129,7 +130,7 @@ var main = function(){
 							FragColor = vec4(col, 1.0);                                          \n\
 						}";
 
-		blurShader1 = "#version 300 es   					                                            \n\
+	var	blurShader1 = "#version 300 es   					                                    \n\
 				precision mediump float; 			                                            \n\
 				in vec2 vUV; 						                                            \n\
 				uniform sampler2D sampler; 			                                            \n\
@@ -181,8 +182,7 @@ var main = function(){
 						FragColor = vec4(col, 1.0);                                             \n\
 					}                                                                           \n\
 				} "	;
-						
-						
+							
 	var kernelEffect =   "#version 300 es  					 									\n\
 						precision mediump float; 			 									\n\
 						in vec2 vUV;                         									\n\
@@ -217,39 +217,49 @@ var main = function(){
 							FragColor = vec4(col, 1.0);                                          \n\
 						}";
 	
-	var shader_guassBlur = "#version 300 es                                                                                 \n\
-					precision mediump float;                                                                                \n\
-					out vec4 FragColor;                                                                                     \n\
+	var shader_guassBlur = "#version 300 es                                                   							   \n\
+							precision mediump float;                                                                       \n\
+							precision mediump int;                                                                         \n\
+																														   \n\
+							out vec4 FragColor;                                                                            \n\
+							in vec2 vUV;                                                                                   \n\
+																														   \n\
+							uniform sampler2D sampler;                                                                     \n\
+							uniform int horizontal;                                                                       \n\
+							uniform int sigma;                                                                             \n\
+																														   \n\
+							//float weight[] = float[] (0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);               \n\
+							// sigma = 3,5 ,7,9,11                                                                         \n\
+																														   \n\
+							float gaussianPdf(in float x, in float sigma) {                                                \n\
+								return 0.39894 * exp( -0.5 * x * x/( sigma * sigma))/sigma;                                \n\
+							}                                                                                              \n\
 																															\n\
-					in vec2 vUV;                                                                                      		\n\
-					uniform sampler2D sampler;                                                                                \n\
-																															\n\
-					uniform bool horizontal;                                                                                 \n\
-					float weight[] = float[] (0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);                          \n\
-																															\n\
-					void main()                                                                                             \n\
-					{                                                                                                       \n\
-						vec2 tex_size = vec2( textureSize(sampler, 0));                                                       \n\
-						vec2 tex_offset = 1.90 / tex_size; // gets size of single texel                                      \n\
-						vec3 result = texture(sampler, vUV).rgb * weight[0]; // current fragment's contribution         		\n\
-						if(horizontal)                                                                                      \n\
-						{                                                                                                   \n\
-							for(int i = 1; i < 5; ++i)                                                                      \n\
+							void main()                                                                                     \n\
 							{                                                                                               \n\
-								result += texture(sampler, vUV + vec2(tex_offset.x * float(i), 0.0)).rgb * weight[i];   		\n\
-								result += texture(sampler, vUV - vec2(tex_offset.x * float(i), 0.0)).rgb * weight[i];   		\n\
-							}                                                                                               \n\
-						}                                                                                                   \n\
-						else                                                                                                \n\
-						{                                                                                                   \n\
-							for(int i = 1; i < 5; ++i)                                                                      \n\
-							{                                                                                               \n\
-								result += texture(sampler, vUV + vec2(0.0, tex_offset.y * float(i))).rgb * weight[i];   		\n\
-								result += texture(sampler, vUV - vec2(0.0, tex_offset.y * float(i))).rgb * weight[i];   		\n\
-							}                                                                                               \n\
-						}                                                                                                   \n\
-						FragColor = vec4(result, 1.0);                                                                      \n\
-					}                                                                                                      "
+								vec2 tex_size = vec2( textureSize(sampler, 0));                                             \n\
+								vec2 tex_offset = 1.0 / tex_size; 					 // gets size of single texel           \n\
+								float weightSum = gaussianPdf(0.0, float(sigma));                                           \n\
+								vec3 result = texture(sampler, vUV).rgb * weightSum; // current fragment's contribution     \n\
+																															\n\
+								int KERNEL_RADIUS = sigma;                                                                  \n\
+								for(int i = 0; i < KERNEL_RADIUS; ++i)                                                      \n\
+								{                                                                                           \n\
+									float x = float(i);                                                                     \n\
+									float w = gaussianPdf(x, float(sigma));                                                 \n\
+									if(horizontal == 1){                                                                         \n\
+										result += texture(sampler, vUV + vec2(tex_offset.x * float(i), 0.0)).rgb * w;       \n\
+										result += texture(sampler, vUV - vec2(tex_offset.x * float(i), 0.0)).rgb * w;       \n\
+									}                                                                                       \n\
+									else{                                                                                   \n\
+										result += texture(sampler, vUV + vec2(0.0, tex_offset.y * float(i))).rgb * w;   	\n\
+										result += texture(sampler, vUV - vec2(0.0, tex_offset.y * float(i))).rgb * w;       \n\
+									}                                                                                       \n\
+									weightSum += 2.0 * w;                                                                   \n\
+								}                                                                                           \n\
+																															\n\
+								FragColor = vec4(result / weightSum, 1.0);                                                              \n\
+							}"
 	
 	/*var shader_combine = "#version 300 es                                                \n\
 						   precision mediump float;                                      \n\
@@ -301,7 +311,7 @@ var main = function(){
 	
 	var _Pmatrix, _Vmatrix, _Mmatrix, _sampler_tex, _uv_tex, _position_tex, _normal_tex;
 	var _position_quard, _sampler_quard, _uv_quard, _uwidth, _uheight, _horizontal;
-	var _image, _scene, _bloomBlur, _uv_blur, _uv_combine;
+	var _image, _scene, _bloomBlur, _uv_blur, _uv_combine, _sigma;
 	var global_teapot;
 
 	var PROJMATRIX, MOVEMATRIX, VIEWMATRIX;			
@@ -404,8 +414,8 @@ var main = function(){
 
 	function initial_bloom_blur_shader(){
 		var shader_vertex	=	get_shader(shader_vertex_source_quard, GL.VERTEX_SHADER, "VERTEX");
-		//var shader_fragment	=	get_shader(shader_guassBlur, GL.FRAGMENT_SHADER, "FRAGMENT");
-		var shader_fragment	=	get_shader(blurShader, GL.FRAGMENT_SHADER, "FRAGMENT");
+		var shader_fragment	=	get_shader(shader_guassBlur, GL.FRAGMENT_SHADER, "FRAGMENT");
+		//var shader_fragment	=	get_shader(blurShader, GL.FRAGMENT_SHADER, "FRAGMENT");
 	
 		var SHADER_PROGRAM = GL.createProgram();
 		GL.attachShader(SHADER_PROGRAM, shader_vertex);
@@ -416,6 +426,7 @@ var main = function(){
 		_uv_blur 	 = GL.getAttribLocation(SHADER_PROGRAM,  "uv");
 		_image       = GL.getUniformLocation(SHADER_PROGRAM, "sampler");
 		_horizontal  = GL.getUniformLocation(SHADER_PROGRAM, "horizontal");
+		_sigma       = GL.getUniformLocation(SHADER_PROGRAM, "sigma");
 	
 		GL.enableVertexAttribArray(_uv_blur);
 		
@@ -578,8 +589,8 @@ var main = function(){
 		GL.bindFramebuffer(GL.FRAMEBUFFER, bloomFBO);
 		GL.drawBuffers([GL.COLOR_ATTACHMENT0, GL.COLOR_ATTACHMENT1]);
 		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
-		var intHorizaontal = 0, horizontal = false, firstIteration = true;
-		var iterCount = 10;	
+		var intHorizaontal = 0, sigma = 3, firstIteration = true;
+		var iterCount = 5;	
 		
 		// render Teapot
 		GL.enable(GL.DEPTH_TEST);
@@ -591,7 +602,6 @@ var main = function(){
 		//THETA += 0.01;
 		//PHI   += 0.01;
 		LIBS.set_I4(MOVEMATRIX);
-		//LIBS.scale(MOVEMATRIX, 1.5);
 		LIBS.rotateY(MOVEMATRIX, THETA);
 		LIBS.rotateX(MOVEMATRIX, PHI);
 		GL.useProgram(tex_shader_program);
@@ -626,9 +636,13 @@ var main = function(){
 		GL.useProgram(bloom_shader_blur);
 		GL.activeTexture(GL.TEXTURE1);
 		for(let i = 0; i < iterCount; ++i){
+			var tempSigma = sigma + i * 2;
 			GL.bindFramebuffer(GL.FRAMEBUFFER, pingpongFBO[intHorizaontal]);
+			
 			GL.uniform1i(_horizontal, intHorizaontal);
 			GL.uniform1i(_image, 1);
+			GL.uniform1i(_sigma,tempSigma);
+			
 			intHorizaontal = (intHorizaontal + 1) % 2;			
 			GL.bindTexture(GL.TEXTURE_2D, firstIteration ?  blackTexture : pingpongTexture[intHorizaontal]);
 			
@@ -670,7 +684,7 @@ var main = function(){
 		GL.activeTexture(GL.TEXTURE0);
 		GL.bindTexture(GL.TEXTURE_2D, bloomInitTex);
 		GL.activeTexture(GL.TEXTURE1);
-		GL.bindTexture(GL.TEXTURE_2D,  pingpongTexture[1]);
+		GL.bindTexture(GL.TEXTURE_2D,  pingpongTexture[0]);
 		
 		GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_INT, 0);
 	
