@@ -47,10 +47,10 @@ var main = function(){
 		layout(location = 0) out vec4 FlagColor1;           \n\
 		layout(location = 1) out vec4 FlagColor2;           \n\
 															\n\
-		const vec3 source_ambient_color=vec3(1.,1.,1.);		\n\
-		const vec3 source_diffuse_color=vec3(1.,1.,1.);		\n\
-		const vec3 source_specular_color=vec3(1.,1.,1.);	\n\
-		const vec3 source_direction=vec3(0.,0.,1.);			\n\
+		const vec3 source_ambient_color = vec3(1.,1.,1.);		\n\
+		const vec3 source_diffuse_color = vec3(1.,1.,1.);		\n\
+		const vec3 source_specular_color = vec3(1.,1.,1.);	    \n\
+		const vec3 source_direction = vec3(0.,0.,1.);			\n\
 															\n\
 		const vec3 mat_ambient_color=vec3(0.3,0.3,0.3);		\n\
 		const vec3 mat_diffuse_color=vec3(1.,1.,1.);		\n\
@@ -64,9 +64,12 @@ var main = function(){
 			vec3 V = normalize(vView);																			\n\
 			vec3 R = reflect(source_direction, vNormal);														\n\
 			vec3 I_specular=source_specular_color*mat_specular_color*pow(max(dot(R,V),0.), mat_shininess);		\n\
-			vec3 I=I_ambient+I_diffuse+I_specular;																\n\
-			FlagColor1 = vec4(I*color, 1.);																	    \n\
-			FlagColor2 = vec4(0.0, 0.0, 0.0, 1.);																	    \n\
+			vec3 I = I_ambient + I_diffuse + I_specular;														\n\
+			FlagColor1 = vec4(I * color, 1.);	                                                                \n\
+			if (FlagColor1.r >= 0.9 && FlagColor1.g >= 0.9 && FlagColor1.b >= 0.9){                             \n\
+				FlagColor1 = vec4(0.89, 0.89, 0.89, 1.0);														\n\
+			}																									\n\
+			FlagColor2 = vec4(0.0, 0.0, 0.0, 1.);															    \n\
 		}";
 
 	var shader_vertex_source_quard = "#version 300 es 	\n\
@@ -284,7 +287,7 @@ var main = function(){
 								FragColor = vec4(result, 1.0);                           \n\
 						   } " */
 	
-	shader_combine = "#version 300 es                                                \n\
+	shader_combine = "#version 300 es                                                	\n\
 						   precision mediump float;                                      \n\
 																						 \n\
 						   out vec4 FragColor;                                           \n\
@@ -292,16 +295,23 @@ var main = function(){
 						   															     \n\
 						   uniform sampler2D scene;                                      \n\
 						   uniform sampler2D bloomBlur;                                  \n\
-						   float exposure = 1.0;                                       \n\
+						   float exposure = 1.0;                                         \n\
 						   															     \n\
 						   void main()                                                   \n\
 						   {                                                             \n\
 								const float gamma = 2.2;                                 \n\
-								vec3 hdrColor 	= texture(scene, vUV).rgb;           	     \n\
+								vec3 hdrColor 	= texture(scene, vUV).rgb;           	 \n\                                                      \n\
 								vec3 bloomColor = texture(bloomBlur, vUV).rgb;           \n\
+								vec3 result;                                              \n\
+								if(hdrColor.r >= 0.9 && hdrColor.g >= 0.9 && hdrColor.b >= 0.9){       \n\
+										result = bloomColor;               							   \n\
+									}                                                    			   \n\
+								else{                                                   			   \n\
+										result = hdrColor;												\n\
+								} 								                         \n\
 								// tone mapping                                          \n\
-								vec3 result = (bloomColor * 0.5 + hdrColor * 0.5);               \n\
-								FragColor = vec4(bloomColor, 1.0);                             \n\
+								FragColor = vec4(bloomColor, 1.0);                       \n\
+								FragColor = vec4(hdrColor, 1.0);                       \n\
 								FragColor = vec4(result, 1.0);                           \n\
 						   } "
 	
@@ -589,7 +599,7 @@ var main = function(){
 		GL.bindFramebuffer(GL.FRAMEBUFFER, bloomFBO);
 		GL.drawBuffers([GL.COLOR_ATTACHMENT0, GL.COLOR_ATTACHMENT1]);
 		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
-		var intHorizaontal = 0, sigma = 3, firstIteration = true;
+		var intHorizaontal = 0, sigma = 5, firstIteration = true;
 		var iterCount = 5;	
 		
 		// render Teapot
@@ -599,7 +609,7 @@ var main = function(){
 		GL.clearDepth(1.0);
 		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 		
-		//THETA += 0.01;
+		THETA += 0.01;
 		//PHI   += 0.01;
 		LIBS.set_I4(MOVEMATRIX);
 		LIBS.rotateY(MOVEMATRIX, THETA);
