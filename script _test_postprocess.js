@@ -66,8 +66,8 @@ var main = function(){
 			vec3 I_specular=source_specular_color*mat_specular_color*pow(max(dot(R,V),0.), mat_shininess);		\n\
 			vec3 I = I_ambient + I_diffuse + I_specular;														\n\
 			FlagColor1 = vec4(I * color, 1.);	                                                                \n\
-			if (FlagColor1.r >= 0.9 && FlagColor1.g >= 0.9 && FlagColor1.b >= 0.9){                             \n\
-				FlagColor1 = vec4(0.89, 0.89, 0.89, 1.0);														\n\
+			if (FlagColor1.r >= 0.95 && FlagColor1.g >= 0.95 && FlagColor1.b >= 0.95){                             \n\
+				FlagColor1 = vec4(0.9, 0.9, 0.9, 1.0);														\n\
 			}																									\n\
 			FlagColor2 = vec4(0.0, 0.0, 0.0, 1.);															    \n\
 		}";
@@ -287,7 +287,7 @@ var main = function(){
 								FragColor = vec4(result, 1.0);                           \n\
 						   } " */
 	
-	shader_combine = "#version 300 es                                                	\n\
+	shader_combine = "#version 300 es                                                	 \n\
 						   precision mediump float;                                      \n\
 																						 \n\
 						   out vec4 FragColor;                                           \n\
@@ -303,7 +303,7 @@ var main = function(){
 								vec3 hdrColor 	= texture(scene, vUV).rgb;           	 \n\                                                      \n\
 								vec3 bloomColor = texture(bloomBlur, vUV).rgb;           \n\
 								vec3 result;                                              \n\
-								if(hdrColor.r >= 0.9 && hdrColor.g >= 0.9 && hdrColor.b >= 0.9){       \n\
+								if(hdrColor.r >= 0.99 && hdrColor.g >= 0.99 && hdrColor.b >= 0.99){       \n\
 										result = bloomColor;               							   \n\
 									}                                                    			   \n\
 								else{                                                   			   \n\
