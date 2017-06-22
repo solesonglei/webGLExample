@@ -27,19 +27,75 @@
 
 	<body>
 		<script src="libs/three.js"></script>
-
+		<script src="libs/jquery-3.2.1.min.js"></script>
+		<script src="libs/TrackballControls.js"></script>
 		<script src="loaders/DDSLoader.js"></script>
 		<script src="loaders/MTLLoader.js"></script>
-		<script src="loaders/OBJLoader.js"></script>
-
+		<script src="loaders/OBJLoaderWithIndex.js"></script>
 		<script src="libs/Detector.js"></script>
 		<script src="libs/stats.min.js"></script>
-
+		
+					<!-- Shaders -->
+		<script type = "x-shader/x-vertex" id = "vertexshader">
+			
+			// switch on high precision floats
+			#ifdef GL_ES
+			precision highp float;
+			#endif
+																
+			varying vec2 vUV;								
+			varying vec3 vNormal;							
+			varying vec3 vView;								  			
+														
+			void main(void) {							
+				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.);	
+				vNormal = vec3(modelMatrix * vec4(normal, 0.));											
+				vView   = vec3(viewMatrix * modelMatrix * vec4(position, 1.));									
+				vUV     = uv;																		
+			}
+		</script>
+	
+		<script type = "x-shader/x-fragment" id = "fragmentshader">
+		
+			#ifdef GL_ES
+			precision highp float;
+			#endif
+			
+			precision mediump float;							
+			uniform sampler2D sampler;							
+			varying vec2 vUV;										
+			varying vec3 vNormal;									
+			varying vec3 vView;										          
+																
+			const vec3 source_ambient_color  = vec3(1.,1.,1.);		
+			const vec3 source_diffuse_color  = vec3(1.,1.,1.);		
+			const vec3 source_specular_color = vec3(1.,1.,1.);	    
+			const vec3 source_direction = vec3(0.,0.,1.);			
+																
+			const vec3 mat_ambient_color  = vec3(0.3,0.3,0.3);		
+			const vec3 mat_diffuse_color  = vec3(1.,1.,1.);		
+			const vec3 mat_specular_color = vec3(1.,1.,1.);		
+			const float mat_shininess = 10.;						
+																
+			void main(void) {									
+				vec3 color = vec3(texture2D(sampler, vUV));															
+				vec3 I_ambient = source_ambient_color * mat_ambient_color;											
+				vec3 I_diffuse = source_diffuse_color * mat_diffuse_color * max(0., dot(vNormal, source_direction));	
+				vec3 V = normalize(vView);																			
+				vec3 R = reflect(source_direction, vNormal);														
+				vec3 I_specular = source_specular_color * mat_specular_color * pow(max(dot(R,V),0.), mat_shininess);		
+				vec3 I = I_ambient + I_diffuse + I_specular;														
+				gl_FragColor = vec4(I * color, 1.);				
+			}
+		
+		</script>
+		
 		<script>
 
 			var container, stats;
 
 			var camera, scene, renderer;
+			var trackballControls_pers, clock;
 
 			var mouseX = 0, mouseY = 0;
 
@@ -60,8 +116,16 @@
 				camera.position.z = 50;
 				camera.rotation.z = 50;
 
+				// trackball
+				trackballControls_pers = new THREE.TrackballControls(camera);
+				trackballControls_pers.rotateSpeed 	 = 1.0;
+				trackballControls_pers.panSpeed 	 = 1.0;
+				trackballControls_pers.staticMoving  = true;
+				trackballControls_pers.target.set( 0, 0, 0 );
+				
+				clock = new THREE.Clock();
+				
 				// scene
-
 				scene = new THREE.Scene();
 
 				var ambient = new THREE.AmbientLight( 0x444444 );
@@ -72,7 +136,6 @@
 				scene.add( directionalLight );
 
 				// model
-
 				var onProgress = function ( xhr ) {
 					if ( xhr.lengthComputable ) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
@@ -82,46 +145,42 @@
 
 				var onError = function ( xhr ) { };
 
-				THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );
-
-				var tooth_material = new THREE.MeshPhongMaterial({
-				                                    color:    0xFDFBEB,
-										specular: 0xB4B4B4,														
-										shininess :  1,
-										shading: THREE.SmoothShading
-									});		
-				tooth_material.shading = THREE.SmoothShading;
-				
-				var mtlLoader = new THREE.MTLLoader();
-				mtlLoader.setPath( 'ressources/U/' );
-				mtlLoader.load( 'UL1.obj.mtl', function( materials ) {
-
-					materials.preload();
-
-					var objLoader = new THREE.OBJLoader();					
-					
-					objLoader.setMaterials( materials );
-					objLoader.setPath( 'ressources/U/' );
+				THREE.Loader.Handlers.add( /\.dds$/i, new THREE.DDSLoader() );	
+								
+				var vShader = $('#vertexshader');
+				var fShader = $('#fragmentshader');				
+								
+				var objLoader = new THREE.OBJLoader();	
+				objLoader.setPath( 'ressources/U/' );
 					objLoader.load( 'UL1.obj', function ( object ) {
-
-						object.position.y = 0;
+					
+						console.log(object.children[0].geometry.attributes.position.length);
+						
+						var shaderMaterialTooth = new THREE.ShaderMaterial({
+									uniforms:   {
+													sampler: {  value: new THREE.TextureLoader().load("ressources/U/test1.png") },												
+												},
+									shading: THREE.SmoothShading,
+									vertexShader:   vShader.text(),
+									fragmentShader: fShader.text()
+								});
+						
+						object.children.forEach(function(mesh){
+							mesh.material = shaderMaterialTooth;
+							mesh.geometry.computeFaceNormals();
+							mesh.geometry.computeVertexNormals();
+							mesh.geometry.dynamic = true;
+						});
+						
 						scene.add( object );
 
 					}, onProgress, onError );
-
-				});
-
-				//
 
 				renderer = new THREE.WebGLRenderer();
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				container.appendChild( renderer.domElement );
 				renderer.setClearColor(new THREE.Color(0xeeeeee), 1.0);	
-
-				//document.addEventListener( 'mousemove', onDocumentMouseMove, false );
-
-				//
 
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -157,16 +216,14 @@
 
 			function render() {
 
-				camera.position.x += ( mouseX - camera.position.x ) * .05;
-				camera.position.y += ( - mouseY - camera.position.y ) * .05;
-
-				camera.lookAt( scene.position );
+				var delta = clock.getDelta();
+				trackballControls_pers.update(delta);
 
 				renderer.render( scene, camera );
 
 			}
 
 		</script>
-
+		
 	</body>
 </html>
