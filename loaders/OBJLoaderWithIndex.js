@@ -181,12 +181,15 @@ THREE.OBJLoader.prototype = {
 				var src = this.uvs;
 				var dst = this.object.geometry.uvs;
 
-				dst.push( src[ a + 0 ] );
+				/*dst.push( src[ a + 0 ] );
 				dst.push( src[ a + 1 ] );
 				dst.push( src[ b + 0 ] );
 				dst.push( src[ b + 1 ] );
 				dst.push( src[ c + 0 ] );
-				dst.push( src[ c + 1 ] );
+				dst.push( src[ c + 1 ] );*/
+				//dst.push(a);
+				//dst.push(b);
+				//dst.push(c);
 
 			},
 
@@ -243,15 +246,18 @@ THREE.OBJLoader.prototype = {
 
 					if ( d === undefined ) {
 
-						this.addUV( ia, ib, ic );
+						//this.addUV( ia, ib, ic );
+						this.addUV(ua, ub, uc);
 
 					} else {
 
 						id = this.parseUVIndex( ud, uvLen );
 
-						this.addUV( ia, ib, id );
-						this.addUV( ib, ic, id );
-
+						//this.addUV( ia, ib, id );
+						//this.addUV( ib, ic, id );
+						
+						this.addUV(ua, ub, ud);
+						this.addUV(ub, uc, ud);
 					}
 
 				}
@@ -538,9 +544,10 @@ THREE.OBJLoader.prototype = {
 
 			}
 
-			if ( geometry.uvs.length > 0 ) {
+			if ( state.uvs.length > 0 ) {
 
-				buffergeometry.addAttribute( 'uv', new THREE.BufferAttribute( new Float32Array( geometry.uvs ), 2 ) );
+				//buffergeometry.addAttribute( 'uv', new THREE.BufferAttribute( new Float32Array( geometry.uvs ), 2 ) );  //this.uvs
+				buffergeometry.addAttribute( 'uv', new THREE.BufferAttribute( new Float32Array( state.uvs ), 2 ) );
 
 			}
 

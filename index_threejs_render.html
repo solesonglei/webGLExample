@@ -154,7 +154,7 @@
 				objLoader.setPath( 'ressources/U/' );
 					objLoader.load( 'UL1.obj', function ( object ) {
 					
-						console.log(object.children[0].geometry.attributes.position.length);
+						console.log(object.children[0].geometry.attributes);
 						
 						var shaderMaterialTooth = new THREE.ShaderMaterial({
 									uniforms:   {
