@@ -57,7 +57,7 @@
 	
 		<script type = "x-shader/x-fragment" id = "fragmentshader">
 		
-			#ifdef GL_ES
+			#ifdef GL_ES 
 			precision highp float;
 			#endif
 			
@@ -67,14 +67,19 @@
 			varying vec3 vNormal;									
 			varying vec3 vView;										          
 																
-			const vec3 source_ambient_color  = vec3(1.,1.,1.);		
-			const vec3 source_diffuse_color  = vec3(1.,1.,1.);		
-			const vec3 source_specular_color = vec3(1.,1.,1.);	    
-			const vec3 source_direction = vec3(0.,0.,1.);			
+			/*const vec3 source_ambient_color  = vec3(0.39, 0.39, 0.39);		
+			const vec3 source_diffuse_color  = vec3( 0.4588, 0.4549, 0.4470);		
+			const vec3 source_specular_color = vec3( 0.0784, 0.0784, 0.0784 );	    
+			const vec3 source_direction = vec3(0.,0.,1.);	*/	
+
+			const vec3 source_ambient_color  = vec3(0.9, 0.9, 0.9);		
+			const vec3 source_diffuse_color  = vec3( 0.4588, 0.4549, 0.4470);		
+			const vec3 source_specular_color = vec3( 0.6, 0.6, 0.6 );//vec3( 0.0784, 0.0784, 0.0784 );	    
+			const vec3 source_direction = vec3(0.0,0.0,-1.0);			
 																
-			const vec3 mat_ambient_color  = vec3(0.3,0.3,0.3);		
-			const vec3 mat_diffuse_color  = vec3(1.,1.,1.);		
-			const vec3 mat_specular_color = vec3(1.,1.,1.);		
+			const vec3 mat_ambient_color  = vec3(.805, .759, .736);		
+			const vec3 mat_diffuse_color  = vec3(.45, .45, .45);		
+			const vec3 mat_specular_color = vec3(.6, .6, .6);		
 			const float mat_shininess = 10.;						
 																
 			void main(void) {									
@@ -85,7 +90,9 @@
 				vec3 R = reflect(source_direction, vNormal);														
 				vec3 I_specular = source_specular_color * mat_specular_color * pow(max(dot(R,V),0.), mat_shininess);		
 				vec3 I = I_ambient + I_diffuse + I_specular;														
-				gl_FragColor = vec4(I * color, 1.);				
+				gl_FragColor = vec4(I * color, 1.);		
+				//gl_FragColor = vec4(I_ambient, 1.);	
+				//gl_FragColor = vec4(vec3(max(dot(R,V),0.)), 1.0);				
 			}
 		
 		</script>
@@ -96,6 +103,7 @@
 
 			var camera, scene, renderer;
 			var trackballControls_pers, clock;
+			var directionalLight, helper, help2, help3;
 
 			var mouseX = 0, mouseY = 0;
 
@@ -113,8 +121,11 @@
 				document.body.appendChild( container );
 
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
-				camera.position.z = 50;
-				camera.rotation.z = 50;
+				//camera.position.z = 250;
+				//camera.rotation.z = 50;
+				camera.position.x = 50;
+				camera.up.set( 0, 0, 1 );
+				camera.lookAt(new THREE.Vector3(0,0,0));
 
 				// trackball
 				trackballControls_pers = new THREE.TrackballControls(camera);
@@ -128,13 +139,17 @@
 				// scene
 				scene = new THREE.Scene();
 
-				var ambient = new THREE.AmbientLight( 0x444444 );
-				scene.add( ambient );
-
-				var directionalLight = new THREE.DirectionalLight( 0xffeedd );
-				directionalLight.position.set( 0, 0, 1 ).normalize();
-				scene.add( directionalLight );
-
+			/*	var ambient = new THREE.AmbientLight( 0x444444 );
+				scene.add( ambient );*/
+			
+				var dir = new THREE.Vector3( 0, 0, -1 );
+				var origin = new THREE.Vector3( 0, 0, 0 );
+				var length = 5;
+				var hex = 0xff0000;
+				
+				var arrowHelper = new THREE.ArrowHelper( dir, origin, length, hex );
+				scene.add( arrowHelper );
+							
 				// model
 				var onProgress = function ( xhr ) {
 					if ( xhr.lengthComputable ) {
@@ -164,15 +179,18 @@
 									vertexShader:   vShader.text(),
 									fragmentShader: fShader.text()
 								});
-						
+											
 						object.children.forEach(function(mesh){
-							mesh.material = shaderMaterialTooth;
+							mesh.material =  shaderMaterialTooth;//tooth_material;//
 							mesh.geometry.computeFaceNormals();
 							mesh.geometry.computeVertexNormals();
 							mesh.geometry.dynamic = true;
 						});
-						
+												
 						scene.add( object );
+						helper3 = new THREE.VertexNormalsHelper( object.children[0], 2, 0x00ff00 , 1 );
+						//helper3 = new THREE.FaceNormalsHelper( object.children[0], 2, 0x00ff00 , 1 )
+						//scene.add(helper3);
 
 					}, onProgress, onError );
 
@@ -180,7 +198,8 @@
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				container.appendChild( renderer.domElement );
-				renderer.setClearColor(new THREE.Color(0xeeeeee), 1.0);	
+				renderer.setClearColor(new THREE.Color(0xeeeeee), 1.0);
+				//renderer.setClearColor(new THREE.Color(0x000000), 1.0);				
 
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -218,7 +237,6 @@
 
 				var delta = clock.getDelta();
 				trackballControls_pers.update(delta);
-
 				renderer.render( scene, camera );
 
 			}

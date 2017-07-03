@@ -1,0 +1,30 @@
+ClinCheck.newlights = [{
+		type: "point",
+		diffuse: [117 / 255, 116 / 255, 114 / 255],   0.4588, 0.4549, 0.4470
+		specular: [20 / 255, 20 / 255, 20 / 255],     0.0784, 0.0784, 0.0784  
+		position: [1, -1, 4],
+		distance: 100,
+		intensity: 1
+	}, {
+		type: "point",
+		diffuse: [117 / 255, 116 / 255, 114 / 255],
+		specular: [15 / 255, 15 / 255, 15 / 255],
+		position: [-1, 1, 4],
+		distance: 100,
+		intensity: 1
+	}
+]
+
+{
+		name: "Tooth",
+		ambient: [.805, .759, .736],
+		diffuse: [.45, .45, .45],
+		specular: [.6, .6, .6],     0.04704
+		roughness: .11,
+		reflection: .03,
+		textures: {
+			ambient: i(3)
+		},
+		gradientColor: !0
+	}
+
