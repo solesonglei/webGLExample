@@ -1,0 +1,35 @@
+ uniform Material material;
+        uniform vec4 Global_ambient;
+        uniform vec4 lights[ 12 ]; // 3 possible lights 4 vec4's each
+        varying vec3 baseNormal;
+        void main() {
+            vec4 fragColor = Global_ambient * material.ambient;
+            int AMBIENT = 0;
+            int DIFFUSE = 1;
+            int SPECULAR = 2;
+            int POSITION = 3;
+            int i;
+            for (i=0;i<12;i=i+4) {
+                // normalized eye-coordinate Light location
+                vec3 EC_Light_location = normalize(
+                    gl_NormalMatrix * lights[i+POSITION].xyz
+                );
+                // half-vector calculation
+                vec3 Light_half = normalize(
+                    EC_Light_location - vec3( 0,0,-1 )
+                );
+                vec2 weights = phong_weightCalc(
+                    EC_Light_location,
+                    Light_half,
+                    baseNormal,
+                    material.shininess
+                );
+                fragColor = (
+                    fragColor
+                    + (lights[i+AMBIENT] * material.ambient)
+                    + (lights[i+DIFFUSE] * material.diffuse * weights.x)
+                    + (lights[i+SPECULAR] * material.specular * weights.y)
+                );
+            }
+            gl_FragColor = fragColor;
+        }
