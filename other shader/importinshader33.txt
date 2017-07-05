@@ -1,0 +1,56 @@
+uniform vec3 materialAmbient;
+uniform vec3 lightAmbient;
+uniform vec3 materialColor;
+
+#if LIGHT_PERPIXEL
+	uniform mat4 matrixModelView;
+	vec3 eyePos;
+	vec3 eyeDir;
+
+	uniform vec3 materialDiffuse;
+	uniform vec3 materialSpecular;
+	uniform float materialShininess;
+	uniform float materialRoughness;
+	uniform float materialReflection;
+
+	uniform sampler2D ctLookupMap;
+	
+	#if LIGHT_IS_POINT||LIGHT_IS_DIRECTIONAL||LIGHT_IS_SPOT||LIGHT_IS_AREA
+		uniform vec3 lightDirection[LIGHT_COUNT];
+		uniform vec3 lightPosition[LIGHT_COUNT];
+		uniform vec3 lightSpecular[LIGHT_COUNT];
+		uniform vec3 lightDiffuse[LIGHT_COUNT];
+		uniform float lightIntensity[LIGHT_COUNT];
+		uniform float lightDistance[LIGHT_COUNT];
+		
+varying vec3 vertexNormalOut;
+varying vec2 vertexTexCoordOut;
+varying float gradientFactor;
+
+vec3 point_light(vec3 lightPos, vec3 totalDiffuse, vec3 totalSpec, vec3 n, float nv) 
+{
+	vec3 lightDirection = lightPos - vertexPositionOut.xyz;
+	vec3 l2 = normalize(lightDirection);
+	float nl = dot( n, l2 );
+	vec3 halfVector = normalize(eyeDir+lightDirection);
+	float nh = dot( n, halfVector );
+
+	#if WORKAROUND_001
+		nh = 0.0;
+	#endif
+
+	vec4 dv4 = texture2D ( ctLookupMap, vec2( nh*0.5+0.5, materialRoughness ) );
+	float d = 1.5 * dot( dv4, d_shift );
+
+	#if 0 // Full Cook-Torrance
+		float f = mix ( pow ( 1.0 - nv, 5.0 ), 1.0, materialReflection ); // Fresnel
+		float x = 2.0 * nh / dot ( eyePos, halfVector );
+		float g = min ( 1.0, min ( x * nl, x * nv ) ); // Geometry attenuation
+		float ct = max( 0.0, d*f*g / nv );
+	#else // Simplified Cook-Torrance for our light conditions
+		float ct = d*materialReflection;
+	#endif
+	return totalDiffuse * max(0.0, nl) + totalSpec * ct;
+}
+
+

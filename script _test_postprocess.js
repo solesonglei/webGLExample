@@ -69,7 +69,7 @@ var main = function(){
 			if (FlagColor1.r >= 0.95 && FlagColor1.g >= 0.95 && FlagColor1.b >= 0.95){                             \n\
 				FlagColor1 = vec4(0.9, 0.9, 0.9, 1.0);														\n\
 			}																									\n\
-			FlagColor2 = vec4(0.0, 0.0, 0.0, 1.);															    \n\
+			FlagColor2 = vec4(0.2, 0.2, 0.2, 1.);															    \n\
 		}";
 
 	var shader_vertex_source_quard = "#version 300 es 	\n\
@@ -311,8 +311,8 @@ var main = function(){
 								} 								                         \n\
 								// tone mapping                                          \n\
 								FragColor = vec4(bloomColor, 1.0);                       \n\
-								FragColor = vec4(hdrColor, 1.0);                       \n\
-								FragColor = vec4(result, 1.0);                           \n\
+								//FragColor = vec4(hdrColor, 1.0);                       	\n\
+								//FragColor = vec4(result, 1.0);                           \n\
 						   } "
 	
 	//shader_fragment_source_quard = blurShader;
