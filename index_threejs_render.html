@@ -48,6 +48,9 @@
 			varying vec3 vView;				
 			varying vec3 vLightDir[2];
 			
+			uniform vec3 bbMin, bbMax;
+			varying float gradientFactor;
+			
 			//uniform vec3 lightsPos[2]; 
 			vec3 lightsPos[2];
 			vec4 pos;
@@ -64,6 +67,8 @@
 				vUV     = uv;
 				vLightDir[0] = lightsPos[0] - pos.xyz;
 				vLightDir[1] = lightsPos[1] - pos.xyz;
+				
+				gradientFactor = sin( 1.57 * clamp( (position.z - bbMin.z)/(bbMax.z-bbMin.z), 0.0, 1.0 ) );
 			}
 		</script>
 	
@@ -82,6 +87,7 @@
 			varying vec3 vNormal;									
 			varying vec3 vView;	
 			varying vec3 vLightDir[2];
+			varying float gradientFactor;
 									
 			vec3 lights[6];							
 			const int AMBIENT 	 = 0;
@@ -115,7 +121,7 @@
 				lights[3 + DIFFUSE]  = vec3( 0.3, 0.3, 0.3); 	//vec3( 0.4588, 0.4549, 0.4470);
 				lights[3 + SPECULAR] = vec3( 0.1, 0.1, 0.1 );	//vec3( 0.6, 0.6, 0.6 );	
 				
-				for(int i = 0; i < 1; i += 1 ){	
+				for(int i = 0; i < 2; i += 1 ){	
 									
 					vec3 source_direction = normalize(vLightDir[i]);
 					vec3 source_ambient_color  	= lights[i * 3 + AMBIENT];
@@ -130,12 +136,14 @@
 					vec3 I_specular = source_specular_color * mat_specular_color * pow(max(dot(R,V),0.), mat_shininess);		
 					vec3 I = I_ambient + I_diffuse + I_specular;
 					
-					fragColor =  fragColor + I ;
+					//fragColor =  fragColor + I ;
 					//fragColor =  fragColor + I * color;
 					/*fragColor = vec3( max(0., dot(vNormal, source_direction)) );
 					fragColor = source_diffuse_color * max(0., dot(vNormal, source_direction));
 					fragColor = mat_diffuse_color * max(0., dot(vNormal, source_direction));*/
-					fragColor = I_diffuse;
+					//fragColor = I_diffuse;
+					//fragColor = vec3(gradientFactor);
+					fragColor = mix( vec3(1.0,0.92,0.84), vec3(0.94,0.94,0.94), gradientFactor );
 				}
 					
 				gl_FragColor = vec4(fragColor , 1.);		
@@ -227,7 +235,7 @@
 				scene.add(pointLightHelper1);
 				scene.add(pointLightHelper2);
 							
-				// model
+				// model				
 				var onProgress = function ( xhr ) {
 					if ( xhr.lengthComputable ) {
 						var percentComplete = xhr.loaded / xhr.total * 100;
@@ -248,24 +256,35 @@
 					
 						console.log(object.children[0].geometry.attributes);
 						
+						var uniforms = {
+										sampler:	 {  value: new THREE.TextureLoader().load("ressources/U/test1.png") },	
+										bbMin:		 {	value: new THREE.Vector3()},
+										bbMax:		 {	value: new THREE.Vector3()}
+									}
+						
 						var shaderMaterialTooth = new THREE.ShaderMaterial({
-									uniforms:   {
-													sampler: {  value: new THREE.TextureLoader().load("ressources/U/test1.png") },												
-												},
+									uniforms:   uniforms,
 									shading: THREE.SmoothShading,
 									vertexShader:   vShader.text(),
 									fragmentShader: fShader.text()
 								});
-											
+						
 						object.children.forEach(function(mesh){
 							mesh.material =  shaderMaterialTooth;//tooth_material;//
 							mesh.geometry.computeFaceNormals();
 							mesh.geometry.computeVertexNormals();
 							mesh.geometry.dynamic = true;
+							mesh.geometry.computeBoundingBox();
 						});
+						
+						uniforms.bbMin.value.copy(object.children[0].geometry.boundingBox.min);
+						uniforms.bbMax.value.copy(object.children[0].geometry.boundingBox.max);
 												
+						var bbx = new THREE.BoundingBoxHelper(object.children[0], new THREE.Color(0xFF0000));						
 						scene.add( object );
-						helper3 = new THREE.VertexNormalsHelper( object.children[0], 2, 0x00ff00 , 1 );
+						scene.add(bbx);
+												
+						//helper3 = new THREE.VertexNormalsHelper( object.children[0], 2, 0x00ff00 , 1 );
 						//helper3 = new THREE.FaceNormalsHelper( object.children[0], 2, 0x00ff00 , 1 )
 						//scene.add(helper3);
 
