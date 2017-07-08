@@ -58,16 +58,16 @@
 
 				//lightsPos[0] = vec4( 60.0,  -30.0,   20.0, 1.0);
 				//lightsPos[1] = vec4( 60.0,  30.0,    -20.0, 1.0);				
-				lightsPos[0] = vec4( 0.0,  0.0, 0.0, 1.0);
-				lightsPos[1] = vec4( 100.0, 00.0,  -60.0, 1.0);
+				lightsPos[0] = vec4( 200,   -100, 100 , 1.0);
+				lightsPos[1] = vec4( 200,   100, -100 , 1.0);
 			
 				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.);
-				vec4 pos	= modelViewMatrix * vec4(position, 1.);			
+				vec4 pos	= modelViewMatrix * vec4(position, 1.);	
 				vNormal = vec3(modelMatrix * vec4(normal, 0.));											
-				vView   = modelViewMatrix[3].xyz - pos.xyz;									
+				vView   = pos.xyz - modelViewMatrix[3].xyz;									
 				vUV     = uv;
-				vLightDir[0] = (lightsPos[0]).xyz + pos.xyz;
-				vLightDir[1] = (lightsPos[1]).xyz + pos.xyz;
+				vLightDir[0] = (lightsPos[0]).xyz - pos.xyz;
+				vLightDir[1] = (lightsPos[1]).xyz - pos.xyz;
 				
 				gradientFactor = sin( 1.57 * clamp( (position.x - bbMin.x)/(bbMax.x-bbMin.x), 0.0, 1.0 ) );
 			}
@@ -101,7 +101,7 @@
 			const vec3 light_ambient_color = vec3(0.7529411911964417, 0.7529411911964417, 0.7529411911964417);
 			
 			const float roughness  = 0.11;
-			const float reflection = 0.6; 
+			const float reflection = 0.4; 
 			
 			void main(void) 
 			{													
@@ -118,11 +118,12 @@
 				lights[3 + DIFFUSE]  = vec3( 0.4588, 0.4549, 0.4470); 	
 				lights[3 + SPECULAR] = vec3( 0.05882353,  0.05882353,  0.05882353 );		
 				
-				for(int i = 1; i < 2; i += 1 )
+				for(int i = 0; i < 1; i += 1 )
 				{										
 					vec3 source_direction = normalize(vLightDir[i]);
 					vec3 source_diffuse_color  	= lights[i * 3 + DIFFUSE];
-					vec3 source_specular_color 	= lights[i * 3 + SPECULAR];					
+					vec3 source_specular_color 	= lights[i * 3 + SPECULAR];
+					
 					// compute specular according to Cook Torrance light model.
 					vec3 V = normalize(vView);
 					vec3 N = normalize(vNormal);
@@ -170,11 +171,11 @@
 					
 					vec3 I_diffuse  = source_diffuse_color * mat_diffuse_color * texColor * NdotL;																																					
 					vec3 I_specular = source_specular_color * mat_specular_color * ct;		
-					vec3 I =   I_specular + I_diffuse;
+					vec3 I =   I_diffuse + I_specular;
 									
-					fragColor +=  I;//vec3(ct);
+					fragColor +=  vec3(NdotV);
 				}
-				fragColor += color * mat_ambient_color * light_ambient_color * texColor;	
+				//fragColor += color * mat_ambient_color * light_ambient_color * texColor;	
 				gl_FragColor = vec4(fragColor , 1.);		
 			}
 		
@@ -204,10 +205,10 @@
 				document.body.appendChild( container );
 
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
-				//camera.position.z = 50;
+				camera.position.z = 150;
 				//camera.rotation.z = 50;
-				camera.position.x = 50;
-				camera.up.set( 0, 0, 1 );
+				//camera.position.x = 150;
+				//camera.up.set( 0, 0, 1 );
 				camera.lookAt(new THREE.Vector3(0,0,0));
 
 				// trackball
@@ -233,7 +234,7 @@
 				dir4 = dir4.normalize();
 				
 				var origin = new THREE.Vector3( 0, 0, 0 );
-				var length = 15;
+				var length = 25;
 				
 				var hex1 = 0xff0000;
 				var hex2 = 0x00ff00;
@@ -243,20 +244,17 @@
 				var arrowHelper1 = new THREE.ArrowHelper( dir1, origin, length, hex1 );
 				var arrowHelper2 = new THREE.ArrowHelper( dir2, origin, length, hex2 );
 				var arrowHelper3 = new THREE.ArrowHelper( dir3, origin, length, hex3 );
-				var arrowHelper4 = new THREE.ArrowHelper( dir4, origin, length * 2, hex4 );
 				
 				scene.add( arrowHelper1 );
 				scene.add( arrowHelper2 );
-				scene.add( arrowHelper3 );
-				//scene.add( arrowHelper4 );
-				
+				scene.add( arrowHelper3 );				
 				
 				//point light 
 				var pointLight1 = new THREE.PointLight( 0xff0000, 1, 100 );
 				var pointLight2 = new THREE.PointLight(0xff0000, 1, 100);
 				
-				pointLight1.position.set( 40,  15, 20 );
-				pointLight2.position.set( 40, -15,  5 );
+				pointLight1.position.set(  200,  -100, 100  );
+				pointLight2.position.set(   200,  100, -100 );
 				
 				
 				var pointLightHelper1 = new THREE.PointLightHelper( pointLight1, 1 );
@@ -282,50 +280,63 @@
 								
 				var vShader = $('#vertexshader');
 				var fShader = $('#fragmentshader');				
-								
-				var objLoader = new THREE.OBJLoader();	
-				objLoader.setPath( 'ressources/U/' );
-				objLoader.load( 'UL1.obj', function ( object ) {
+
+				var uniforms = {
+								sampler:	 {  value: new THREE.TextureLoader().load("ressources/U/T.png") },	
+								bbMin:		 {	value: new THREE.Vector3()	},
+								bbMax:		 {	value: new THREE.Vector3()	}
+							}
 				
-					console.log(object.children[0].geometry.attributes);
-					
-					var uniforms = {
-									sampler:	 {  value: new THREE.TextureLoader().load("ressources/U/test1.png") },	
-									bbMin:		 {	value: new THREE.Vector3()	},
-									bbMax:		 {	value: new THREE.Vector3()	}
-								}
-					
-					var shaderMaterialTooth = new THREE.ShaderMaterial({
-								uniforms:   	uniforms,
-								shading: 		THREE.SmoothShading,
-								vertexShader:   vShader.text(),
-								fragmentShader: fShader.text()
-							});
-					
-					object.children.forEach(function(mesh){
-						mesh.material =  shaderMaterialTooth;//tooth_material;//
-						mesh.geometry.computeFaceNormals();
-						mesh.geometry.computeVertexNormals();
-						mesh.geometry.dynamic = true;
-						mesh.geometry.computeBoundingBox();
-						
-						//mesh.position.z = -50;
-						
-					});
-					
-					uniforms.bbMin.value.copy(object.children[0].geometry.boundingBox.min);
-					uniforms.bbMax.value.copy(object.children[0].geometry.boundingBox.max);
-											
-					var bbx = new THREE.BoundingBoxHelper(object.children[0], new THREE.Color(0xFF0000));						
-					scene.add( object );
-					scene.add(bbx);
-											
-					helper3 = new THREE.VertexNormalsHelper( object.children[0], 2, 0x00ff00 , 1 );
-					//helper3 = new THREE.FaceNormalsHelper( object.children[0], 2, 0x00ff00 , 1 )
-					//scene.add(helper3);
+				var shaderMaterialTooth = new THREE.ShaderMaterial({
+							uniforms:   	uniforms,
+							shading: 		THREE.SmoothShading,
+							vertexShader:   vShader.text(),
+							fragmentShader: fShader.text()
+						});
+				
+				var objLoader = new THREE.OBJLoader();	
+				objLoader.setPath( 'ressources/testmodel/' );
+				
+				var files = ["LL1.obj","LL2.obj", "LL3.obj", "LL4.obj", "LL5.obj", "LL6.obj", "LR2.obj", "LR6.obj", "LR7.obj",
+				             "UL1.obj", "UL2.obj", "UL3.obj", "UL4.obj", "UL5.obj", "UL6.obj", "UL8.obj",
+							 "UR1.obj", "UR2.obj", "UR3.obj", "UR4.obj", "UR5.obj", "UR6.obj","UR7"];
+							 
+				console.log(files.length);			 
+				
+				function iterateLoad(filesIndex){
+					if(filesIndex > files.length - 1){
+						return;
+					}
 
-				}, onProgress, onError );
+					objLoader.load( files[filesIndex], function ( object ) {
 
+						console.log(files[filesIndex]);					
+						
+						object.children.forEach(function(mesh){
+							mesh.material =  shaderMaterialTooth;
+							mesh.geometry.computeFaceNormals();
+							mesh.geometry.computeVertexNormals();
+							mesh.geometry.dynamic = true;
+							mesh.geometry.computeBoundingBox();						
+							
+						});
+						
+						uniforms.bbMin.value.copy(object.children[0].geometry.boundingBox.min);
+						uniforms.bbMax.value.copy(object.children[0].geometry.boundingBox.max);
+												
+						var bbx = new THREE.BoundingBoxHelper(object.children[0], new THREE.Color(0xFF0000));						
+						scene.add( object );
+						scene.add(bbx);
+
+						filesIndex ++;
+						iterateLoad(filesIndex);
+												
+					}, onProgress, onError );
+					
+				}
+				
+				iterateLoad(0);
+				
 				renderer = new THREE.WebGLRenderer();
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );

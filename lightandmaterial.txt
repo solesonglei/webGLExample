@@ -41,3 +41,5 @@ material ambient: 0.8050000071525574,0.7590000033378601,0.7360000014305115
 6	bbMax	1	FLOAT_VEC3	-0.016526181250810623,0.005463562440127134,0.007252681069076061
 
 gradientFactor = sin( 1.57 * clamp( (vertexPosition.z - bbMin.z)/(bbMax.z-bbMin.z), 0.0, 1.0 ) );
+
+color.rgb += texture2D(textureAmbient, texCoord).rgb*lightAmbient*materialColor*materialAmbient*texColor;
