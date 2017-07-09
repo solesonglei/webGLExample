@@ -58,8 +58,8 @@
 
 				//lightsPos[0] = vec4( 60.0,  -30.0,   20.0, 1.0);
 				//lightsPos[1] = vec4( 60.0,  30.0,    -20.0, 1.0);				
-				lightsPos[0] = vec4( 40,   -10, 10 , 1.0);
-				lightsPos[1] = vec4( 40,   10, -10 , 1.0);
+				lightsPos[0] = vec4( -100,   100, 400 , 1.0);
+				lightsPos[1] = vec4( 100,   -100, 400 , 1.0);
 			
 				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.);
 				vec4 pos	= modelViewMatrix * vec4(position, 1.);	
@@ -101,7 +101,7 @@
 			const vec3 light_ambient_color = vec3(0.7529411911964417, 0.7529411911964417, 0.7529411911964417);
 			
 			const float roughness  = 0.11;
-			const float reflection = 0.3; 
+			const float reflection = 0.2; 
 			
 			void main(void) 
 			{													
@@ -173,7 +173,7 @@
 					vec3 I_specular = source_specular_color * mat_specular_color * ct;		
 					vec3 I =   I_diffuse + I_specular;
 									
-					fragColor +=  I;//vec3(NdotV);
+					fragColor +=  I;//vec3(ct);
 				}
 				fragColor += color * mat_ambient_color * light_ambient_color * texColor;	
 				gl_FragColor = vec4(fragColor , 1.);		
