@@ -58,13 +58,13 @@
 
 				//lightsPos[0] = vec4( 60.0,  -30.0,   20.0, 1.0);
 				//lightsPos[1] = vec4( 60.0,  30.0,    -20.0, 1.0);				
-				lightsPos[0] = vec4( 200,   -100, 100 , 1.0);
-				lightsPos[1] = vec4( 200,   100, -100 , 1.0);
+				lightsPos[0] = vec4( 40,   -10, 10 , 1.0);
+				lightsPos[1] = vec4( 40,   10, -10 , 1.0);
 			
 				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.);
 				vec4 pos	= modelViewMatrix * vec4(position, 1.);	
-				vNormal = vec3(modelMatrix * vec4(normal, 0.));											
-				vView   = pos.xyz - modelViewMatrix[3].xyz;									
+				vNormal = vec3(modelViewMatrix * vec4(normal, 0.));											
+				vView   = -pos.xyz + (modelViewMatrix * vec4(150.0, 0.0, 0.0, 1.0)).xyz ;//pos.xyz - modelViewMatrix[3].xyz;									
 				vUV     = uv;
 				vLightDir[0] = (lightsPos[0]).xyz - pos.xyz;
 				vLightDir[1] = (lightsPos[1]).xyz - pos.xyz;
@@ -101,7 +101,7 @@
 			const vec3 light_ambient_color = vec3(0.7529411911964417, 0.7529411911964417, 0.7529411911964417);
 			
 			const float roughness  = 0.11;
-			const float reflection = 0.4; 
+			const float reflection = 0.3; 
 			
 			void main(void) 
 			{													
@@ -110,7 +110,7 @@
 				vec3 fragColor = vec3(0.0);
 				vec3 texColor = mix( vec3(1.0,0.92,0.84), vec3(0.94,0.94,0.94), gradientFactor );
 				
-				lights[AMBIENT]  = vec3(1, 1, 1);      
+				lights[AMBIENT]  = vec3( 1, 1, 1 );      
 				lights[DIFFUSE]  = vec3( 0.4588, 0.4549, 0.4470);  
 				lights[SPECULAR] = vec3( 0.0784, 0.0784, 0.0784);    
 			
@@ -118,7 +118,7 @@
 				lights[3 + DIFFUSE]  = vec3( 0.4588, 0.4549, 0.4470); 	
 				lights[3 + SPECULAR] = vec3( 0.05882353,  0.05882353,  0.05882353 );		
 				
-				for(int i = 0; i < 1; i += 1 )
+				for(int i = 0; i < 2; i += 1 )
 				{										
 					vec3 source_direction = normalize(vLightDir[i]);
 					vec3 source_diffuse_color  	= lights[i * 3 + DIFFUSE];
@@ -173,9 +173,9 @@
 					vec3 I_specular = source_specular_color * mat_specular_color * ct;		
 					vec3 I =   I_diffuse + I_specular;
 									
-					fragColor +=  vec3(NdotV);
+					fragColor +=  I;//vec3(NdotV);
 				}
-				//fragColor += color * mat_ambient_color * light_ambient_color * texColor;	
+				fragColor += color * mat_ambient_color * light_ambient_color * texColor;	
 				gl_FragColor = vec4(fragColor , 1.);		
 			}
 		
@@ -205,10 +205,10 @@
 				document.body.appendChild( container );
 
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
-				camera.position.z = 150;
+				//camera.position.z = 150;
 				//camera.rotation.z = 50;
-				//camera.position.x = 150;
-				//camera.up.set( 0, 0, 1 );
+				camera.position.x = 150;
+				camera.up.set( 0, 0, 1 );
 				camera.lookAt(new THREE.Vector3(0,0,0));
 
 				// trackball
@@ -301,7 +301,7 @@
 				             "UL1.obj", "UL2.obj", "UL3.obj", "UL4.obj", "UL5.obj", "UL6.obj", "UL8.obj",
 							 "UR1.obj", "UR2.obj", "UR3.obj", "UR4.obj", "UR5.obj", "UR6.obj","UR7"];
 							 
-				console.log(files.length);			 
+				//console.log(files.length);			 
 				
 				function iterateLoad(filesIndex){
 					if(filesIndex > files.length - 1){
@@ -310,15 +310,19 @@
 
 					objLoader.load( files[filesIndex], function ( object ) {
 
-						console.log(files[filesIndex]);					
-						
+						//console.log(files[filesIndex]);	
+		
 						object.children.forEach(function(mesh){
 							mesh.material =  shaderMaterialTooth;
 							mesh.geometry.computeFaceNormals();
 							mesh.geometry.computeVertexNormals();
 							mesh.geometry.dynamic = true;
-							mesh.geometry.computeBoundingBox();						
+							mesh.geometry.computeBoundingBox();	
 							
+							if(files[filesIndex] == "LL2.obj"){
+								console.log("yes");
+								console.log(mesh.geometry);
+							}
 						});
 						
 						uniforms.bbMin.value.copy(object.children[0].geometry.boundingBox.min);
