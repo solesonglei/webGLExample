@@ -416,6 +416,44 @@ void main(void)
 #define OES_standard_derivatives 1
 
 
+===============================================
+// gum
+#define LIGHT_COUNT 2
+#define TEXTURE_COLOR 1
+#define TEXTURE_SPECULAR 1
+#define TEXTURE_NORMAL 0
+#define TEXTURE_BUMP 0
+#define TEXTURE_REFLECT 0
+#define TEXTURE_ENVSPHERE 0
+#define TEXTURE_AMBIENT 0
+#define TEXTURE_ALPHA 0
+#define MATERIAL_ALPHA 0
+#define GRADIENT_COLOR 0
+#define LIGHT_IS_POINT 1
+#define LIGHT_IS_DIRECTIONAL 0
+#define LIGHT_IS_SPOT 0
+#define LIGHT_SHADOWED 0
+#define LIGHT_IS_PROJECTOR 0
+#define LIGHT_SHADOWED_SOFT 0
+#define LIGHT_IS_AREA 0
+#define LIGHT_DEPTH_PASS 0
+#define FX_DEPTH_ALPHA 0
+#define VERTEX_MORPH 1
+#define VERTEX_COLOR 0
+#define FOG_ENABLED 0
+#define USE_FOG_EXP 0
+#define USE_FOG_LINEAR 0
+#define LIGHT_PERPIXEL 1
+#define POINT_SPRITE 0
+#define POINT_SIZE 0
+#define POINT_CIRCLE 0
+#define INTERNET_EXPLORER 0
+#define WORKAROUND_001 0
+#extension GL_OES_standard_derivatives : enable 
+#define OES_standard_derivatives 1
+
+===============================================
+
 #ifdef GL_ES
 	#if LIGHT_PERPIXEL
 
