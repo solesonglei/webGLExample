@@ -26,51 +26,129 @@ var main = function(){
 		out vec2 vUV;								\n\
 		out vec3 vNormal;							\n\
 		out vec3 vView;								\n\
-		mat4 scaleMatrix = mat4(.2,0,0,0,   		\n\
-		                    0,.2,0,0,    			\n\
-							0,0,.2,0,    			\n\
-							0,0,0,1 );   			\n\
+		out vec3 vLightDir[2];                         \n\
+		vec4 lightsPos[2];							\n\
 													\n\
 		void main(void) {							\n\
-			gl_Position = Pmatrix * Vmatrix * Mmatrix * scaleMatrix * vec4(position, 1.);	\n\
-			vNormal=vec3(Mmatrix*vec4(normal, 0.));											\n\
-			vView=vec3(Vmatrix*Mmatrix*vec4(position, 1.));									\n\
-			vUV = uv;																		\n\
+				lightsPos[0] = vec4( -100,   100, 400 , 1.0);                                                                          \n\
+				lightsPos[1] = vec4( 100,   -100, 400 , 1.0);                                                                          \n\
+			                                                                                                                           \n\
+				gl_Position = Pmatrix * Vmatrix * Mmatrix * vec4(position, 1.);                                        \n\
+				vec4 pos	= Vmatrix * Mmatrix * vec4(position, 1.);	                                                                   \n\
+				vNormal = vec3(Vmatrix * Mmatrix * vec4(normal, 0.));											                           \n\
+				vView   = -pos.xyz + (Vmatrix * Mmatrix * vec4(150.0, 0.0, 0.0, 1.0)).xyz ;//pos.xyz - modelViewMatrix[3].xyz;			\n\
+				vUV     = uv;                                                                                                          \n\
+				vLightDir[0] = (lightsPos[0]).xyz - pos.xyz;                                                                           \n\
+				vLightDir[1] = (lightsPos[1]).xyz - pos.xyz;                                                                           \n\
+				                                                                                                                       \n\
 		}";
 		
 	 var shader_fragment_source_tex = "#version 300 es		\n\
 		precision mediump float;							\n\
-		uniform sampler2D sampler;							\n\
-		in vec2 vUV;										\n\
-		in vec3 vNormal;									\n\
-		in vec3 vView;										\n\
-		layout(location = 0) out vec4 FlagColor1;           \n\
-		layout(location = 1) out vec4 FlagColor2;           \n\
-															\n\
-		const vec3 source_ambient_color = vec3(1.,1.,1.);		\n\
-		const vec3 source_diffuse_color = vec3(1.,1.,1.);		\n\
-		const vec3 source_specular_color = vec3(1.,1.,1.);	    \n\
-		const vec3 source_direction = vec3(0.,0.,1.);			\n\
-															\n\
-		const vec3 mat_ambient_color=vec3(0.3,0.3,0.3);		\n\
-		const vec3 mat_diffuse_color=vec3(1.,1.,1.);		\n\
-		const vec3 mat_specular_color=vec3(1.,1.,1.);		\n\
-		const float mat_shininess=10.;						\n\
-															\n\
-		void main(void) {									\n\
-			vec3 color = vec3(texture(sampler, vUV));															\n\
-			vec3 I_ambient = source_ambient_color*mat_ambient_color;											\n\
-			vec3 I_diffuse = source_diffuse_color*mat_diffuse_color*max(0., dot(vNormal, source_direction));	\n\
-			vec3 V = normalize(vView);																			\n\
-			vec3 R = reflect(source_direction, vNormal);														\n\
-			vec3 I_specular=source_specular_color*mat_specular_color*pow(max(dot(R,V),0.), mat_shininess);		\n\
-			vec3 I = I_ambient + I_diffuse + I_specular;														\n\
-			FlagColor1 = vec4(I * color, 1.);	                                                                \n\
-			if (FlagColor1.r >= 0.95 && FlagColor1.g >= 0.95 && FlagColor1.b >= 0.95){                             \n\
-				FlagColor1 = vec4(0.9, 0.9, 0.9, 1.0);														\n\
-			}																									\n\
-			FlagColor2 = vec4(0.2, 0.2, 0.2, 1.);															    \n\
-		}";
+			precision mediump float;	                                                                           \n\
+			                                                                                                       \n\
+			uniform sampler2D sampler;	                                                                           \n\
+			//uniform vec3 lights[6];// 3 vec4 for each light--- ambient,diffuse, specular color.                  \n\
+						                                                                                           \n\
+			in vec2 vUV;										                                               \n\
+			in vec3 vNormal;									                                               \n\
+			in vec3 vView;	                                                                                   \n\
+			in vec3 vLightDir[2];                                                                             \n\
+			layout(location = 0) out vec4 FlagColor1;           													\n\
+			layout(location = 1) out vec4 FlagColor2;           													\n\
+									                                                                               \n\
+			vec3 lights[6];							                                                               \n\
+			const int AMBIENT 	 = 0;                                                                              \n\
+			const int DIFFUSE 	 = 1;                                                                              \n\
+			const int SPECULAR 	 = 2;                                                                              \n\
+		                                                                                                           \n\
+			const vec3 mat_ambient_color   = vec3(.805, .759, .736);		                                       \n\
+			const vec3 mat_diffuse_color   = vec3(.45, .45, .45);		                                           \n\
+			const vec3 mat_specular_color  = vec3(.6, .6, .6);                                                     \n\
+			const vec3 light_ambient_color = vec3(0.7529411911964417, 0.7529411911964417, 0.7529411911964417);     \n\
+			                                                                                                       \n\
+			const float roughness  = 0.11;                                                                         \n\
+			const float reflection = 0.2;                                                                          \n\
+			                                                                                                       \n\
+			void main(void)                                                                                        \n\
+			{													                                                   \n\
+				vec3 color = vec3(texture(sampler, vUV));                                                        \n\
+							                                                                                       \n\
+				vec3 fragColor = vec3(0.0);                                                                        \n\
+				vec3 texColor = color;                  \n\
+				                                                                                                   \n\
+				lights[AMBIENT]  = vec3( 1, 1, 1 );                                                                \n\
+				lights[DIFFUSE]  = vec3( 0.4588, 0.4549, 0.4470);                                                  \n\
+				lights[SPECULAR] = vec3( 0.0784, 0.0784, 0.0784);                                                  \n\
+			                                                                                                       \n\
+				lights[3 + AMBIENT]  = vec3(1, 1, 1);  	                                                           \n\
+				lights[3 + DIFFUSE]  = vec3( 0.4588, 0.4549, 0.4470); 	                                           \n\
+				lights[3 + SPECULAR] = vec3( 0.05882353,  0.05882353,  0.05882353 );		                       \n\
+				                                                                                                   \n\
+				for(int i = 0; i < 2; i += 1 )                                                                     \n\
+				{										                                                           \n\
+					vec3 source_direction = normalize(vLightDir[i]);                                               \n\
+					vec3 source_diffuse_color  	= lights[i * 3 + DIFFUSE];                                         \n\
+					vec3 source_specular_color 	= lights[i * 3 + SPECULAR];                                        \n\
+					                                                                                               \n\
+					// compute specular according to Cook Torrance light model.                                    \n\
+					vec3 V = normalize(vView);                                                                     \n\
+					vec3 N = normalize(vNormal);                                                                   \n\
+					vec3 halfVector = normalize(V + source_direction);                                             \n\
+					float NdotL = dot(N, source_direction);	                                                       \n\
+					float NdotH = max(0.0, dot(N, halfVector));                                                    \n\
+					float NdotV = max(0.0, dot(N, V));                                                             \n\
+					float VdotH = max(0.0, dot(V, halfVector));                                                    \n\
+					                                                                                               \n\
+					if(NdotL < 0.0){                                                                               \n\
+						NdotL = 0.0;                                                                               \n\
+					}                                                                                              \n\
+					                                                                                               \n\
+					// roughness                                                                                   \n\
+					float D = 0.0;                                                                                 \n\
+					if(NdotH != 0.0){                                                                              \n\
+						float r1 = 1.0 / (3.14 * roughness * roughness * pow(NdotH, 4.0));                         \n\
+						float r2 = (NdotH * NdotH - 1.0) / (roughness * roughness * NdotH * NdotH);                \n\
+						D = r1 * exp(r2);	                                                                       \n\
+					}                                                                                              \n\
+									                                                                               \n\
+					// geometric attenuation                                                                       \n\
+					float NH2 = 2.0 * NdotH;                                                                       \n\
+					float G = 0.0;                                                                                 \n\
+					if(VdotH != 0.0 ){                                                                             \n\
+						float g1 = (NH2 * NdotV) / VdotH;                                                          \n\
+						float g2 = (NH2 * NdotL) / VdotH;                                                          \n\
+						G  = min(1.0, min(g1, g2));                                                                \n\
+					}	                                                                                           \n\
+					                                                                                               \n\
+					//fresnel                                                                                      \n\
+					// Schlick approximation                                                                       \n\
+					float F = pow(1.0 - VdotH, 5.0);                                                               \n\
+					F *= (1.0 - reflection);                                                                       \n\
+					F += reflection;                                                                               \n\
+					                                                                                               \n\
+					float ct = 0.0;                                                                                \n\
+					if(NdotV * NdotL != 0.0){                                                                      \n\
+						ct = (F * G * D) / (NdotV * NdotL * 3.14);                                                 \n\
+					}                                                                                              \n\
+					ct = D * reflection;					                                                       \n\
+                                                                                                                   \n\
+					//vec3 R = reflect(source_direction, N);                                                       \n\
+					//ct = pow(max(dot(R,V),0.), 100.0);                                                           \n\
+					                                                                                               \n\
+					vec3 I_diffuse  = source_diffuse_color * mat_diffuse_color * texColor * NdotL;					\n\
+					vec3 I_specular = source_specular_color * mat_specular_color * ct;		                       \n\
+					vec3 I =   I_diffuse + I_specular;                                                             \n\
+									                                                                               \n\
+					fragColor +=  I;//vec3(ct);                                                                    \n\
+				}                                                                                                  \n\
+				fragColor +=   mat_ambient_color * light_ambient_color * texColor;	                               \n\
+				FlagColor1 = vec4(fragColor , 1.);		                                                       \n\
+				if (FlagColor1.r >= 0.95 && FlagColor1.g >= 0.95 && FlagColor1.b >= 0.95){                          \n\
+					FlagColor1 = vec4(0.9, 0.9, 0.9, 1.0);															\n\
+				}																									\n\
+				FlagColor2 = vec4(vec3(0.3) , 1.);																	\n\
+			}"
 
 	var shader_vertex_source_quard = "#version 300 es 	\n\
 		in vec4 vPosition; 								\n\
@@ -312,7 +390,7 @@ var main = function(){
 								// tone mapping                                          \n\
 								FragColor = vec4(bloomColor, 1.0);                       \n\
 								//FragColor = vec4(hdrColor, 1.0);                       	\n\
-								//FragColor = vec4(result, 1.0);                           \n\
+								FragColor = vec4(result, 1.0);                           \n\
 						   } "
 	
 	//shader_fragment_source_quard = blurShader;
@@ -466,7 +544,7 @@ var main = function(){
 	var initDrawParameter = function(){
 		THETA = 0;
 		PHI   = 0;
-		teapot_texture = get_texture("ressources/teapot_texture.png");
+		teapot_texture = get_texture("ressources/tooth2.png");
 		tex_shader_program   = initial_texture_shader();
 		quard_shader_program = initial_quard_shader();
 		bloom_shader_blur    = initial_bloom_blur_shader();
@@ -479,8 +557,11 @@ var main = function(){
 		PROJMATRIX	= LIBS.get_projection(60, CANVAS.width/CANVAS.height, 1, 100);
 		MOVEMATRIX	= LIBS.get_I4();
 		VIEWMATRIX	= LIBS.get_I4();	
-		LIBS.translateZ(VIEWMATRIX, -10);
-		//LIBS.translateY(VIEWMATRIX, -4);
+		LIBS.translateZ(VIEWMATRIX, -50);
+		LIBS.translateX(VIEWMATRIX, -25);
+		LIBS.rotateY(MOVEMATRIX, -1);
+		LIBS.rotateX(MOVEMATRIX, 0);
+		//LIBS.translateY(VIEWMATRIX, 10);
 		
 		// load quard object				
 		VERTEX_QUARD = GL.createBuffer();
@@ -600,7 +681,7 @@ var main = function(){
 		GL.drawBuffers([GL.COLOR_ATTACHMENT0, GL.COLOR_ATTACHMENT1]);
 		GL.viewport(0.0, 0.0, CANVAS.width, CANVAS.height);	
 		var intHorizaontal = 0, sigma = 5, firstIteration = true;
-		var iterCount = 5;	
+		var iterCount = 15;	
 		
 		// render Teapot
 		GL.enable(GL.DEPTH_TEST);
@@ -609,11 +690,11 @@ var main = function(){
 		GL.clearDepth(1.0);
 		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 		
-		THETA += 0.01;
+		//THETA   += 0.01;
 		//PHI   += 0.01;
-		LIBS.set_I4(MOVEMATRIX);
-		LIBS.rotateY(MOVEMATRIX, THETA);
-		LIBS.rotateX(MOVEMATRIX, PHI);
+		//LIBS.set_I4(MOVEMATRIX);
+		//LIBS.rotateY(MOVEMATRIX, THETA);
+		//LIBS.rotateX(MOVEMATRIX, PHI);
 		GL.useProgram(tex_shader_program);
 		
 		GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
@@ -715,7 +796,7 @@ var main = function(){
 		GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
 		
 		////////////// draw teapot as texture attach to quard in main scene /////////////////
-		THETA += 0.01;
+		//THETA = 1;
 		//PHI   += 0.01;
 		LIBS.set_I4(MOVEMATRIX);
 		//LIBS.scale(MOVEMATRIX, 1.2);
@@ -774,7 +855,7 @@ var main = function(){
 		window.requestAnimationFrame(animate);
 	}
 		
-	LIBS.get_json("ressources/teapot.json", function(teapot){
+	/*LIBS.get_json("ressources/teapot.json", function(teapot){
 		//vertices
 		global_teapot = teapot;
 		VERTEX = GL.createBuffer ();
@@ -786,6 +867,42 @@ var main = function(){
 		TEXTURE_COORD = GL.createBuffer();
 		GL.bindBuffer(GL.ARRAY_BUFFER, TEXTURE_COORD);
 		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(teapot.vertexTextureCoords), GL.STATIC_DRAW);
+		GL.vertexAttribPointer(_uv_tex, 2, GL.FLOAT, false, 0, 0) ;
+
+		// normals coordinates
+		NORMALS = GL.createBuffer();
+		GL.bindBuffer(GL.ARRAY_BUFFER, NORMALS);
+		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(teapot.vertexNormals), GL.STATIC_DRAW);
+		GL.vertexAttribPointer(_normal_tex, 3, GL.FLOAT, false, 0, 0) ;
+		
+		//faces 
+		FACES = GL.createBuffer ();
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, FACES);
+		GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, new Uint32Array(teapot.indices), GL.STATIC_DRAW);	
+		NPOINTS = teapot.indices.length;
+	
+		//initDrawParameter();
+		//initFramebuffer();
+		//animate();
+		
+		initDrawParameter();
+		initBloomFBO();
+		initPingpongFBO();
+		animateForBloom();
+    });*/
+	
+	 LIBS.get_obj("ressources/test2.obj", OBJ.Mesh ,function(teapot){
+		//vertices
+		global_teapot = teapot;
+		VERTEX = GL.createBuffer ();
+		GL.bindBuffer(GL.ARRAY_BUFFER, VERTEX);
+		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(teapot.vertices), GL.STATIC_DRAW);
+		GL.vertexAttribPointer(_position_tex, 3, GL.FLOAT, false,0,0) ;
+
+		// texture coordinates
+		TEXTURE_COORD = GL.createBuffer();
+		GL.bindBuffer(GL.ARRAY_BUFFER, TEXTURE_COORD);
+		GL.bufferData(GL.ARRAY_BUFFER, new Float32Array(teapot.textures), GL.STATIC_DRAW);
 		GL.vertexAttribPointer(_uv_tex, 2, GL.FLOAT, false, 0, 0) ;
 
 		// normals coordinates

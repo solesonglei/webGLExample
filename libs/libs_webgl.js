@@ -15,6 +15,20 @@ var LIBS={
     xmlHttp.send();
   },
 
+    get_obj: function(url, parse,callback ) {
+    //create the request
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open("GET", url, true);
+    xmlHttp.onreadystatechange = function() {
+      if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
+        //the file is loaded. Parse it as JSON and lauch func
+        callback(new parse(xmlHttp.responseText));
+      }
+    };
+    //send the request
+    xmlHttp.send();
+  },
+  
   degToRad: function(angle){
     return(angle*Math.PI/180);
   },
@@ -90,7 +104,10 @@ var LIBS={
     m[5]=c*m[5]+s*mv4;
     m[9]=c*m[9]+s*mv8;
   },
-
+  
+  translateX: function(m, t){
+    m[12]+=t;
+  },
   translateZ: function(m, t){
     m[14]+=t;
   },
